@@ -1,0 +1,335 @@
+{
+  "synthetic": true,
+  "products": [
+    {
+      "key": "p001-50ml",
+      "ean": "8009900000013",
+      "brand": "Lumen Care",
+      "name": "Gel Idratante",
+      "colorName": "Blu",
+      "size": "50 ml",
+      "category": "Lubrificanti",
+      "imageKey": "p001"
+    },
+    {
+      "key": "p001-100ml",
+      "ean": "8009900000020",
+      "brand": "Lumen Care",
+      "name": "Gel Idratante",
+      "colorName": "Blu",
+      "size": "100 ml",
+      "category": "Lubrificanti",
+      "imageKey": "p001"
+    },
+    {
+      "key": "p002-50ml",
+      "ean": "8009900000037",
+      "brand": "Sensa",
+      "name": "Lubrificante Acqua",
+      "colorName": "Oro",
+      "size": "50 ml",
+      "category": "Lubrificanti",
+      "imageKey": "p002"
+    },
+    {
+      "key": "p002-100ml",
+      "ean": "8009900000044",
+      "brand": "Sensa",
+      "name": "Lubrificante Acqua",
+      "colorName": "Oro",
+      "size": "100 ml",
+      "category": "Lubrificanti",
+      "imageKey": "p002"
+    },
+    {
+      "key": "p003-50ml",
+      "ean": "8009900000051",
+      "brand": "Moira",
+      "name": "Silk Gel",
+      "colorName": "Fucsia",
+      "size": "50 ml",
+      "category": "Lubrificanti",
+      "imageKey": "p003"
+    },
+    {
+      "key": "p003-100ml",
+      "ean": "8009900000068",
+      "brand": "Moira",
+      "name": "Silk Gel",
+      "colorName": "Fucsia",
+      "size": "100 ml",
+      "category": "Lubrificanti",
+      "imageKey": "p003"
+    },
+    {
+      "key": "p004-50ml",
+      "ean": "8009900000075",
+      "brand": "Moira",
+      "name": "Olio Massaggio",
+      "colorName": "Nero",
+      "size": "50 ml",
+      "category": "Lubrificanti",
+      "imageKey": "p004"
+    },
+    {
+      "key": "p004-100ml",
+      "ean": "8009900000082",
+      "brand": "Moira",
+      "name": "Olio Massaggio",
+      "colorName": "Nero",
+      "size": "100 ml",
+      "category": "Lubrificanti",
+      "imageKey": "p004"
+    },
+    {
+      "key": "p005-30ml",
+      "ean": "8009900000099",
+      "brand": "Moira",
+      "name": "Crema Stimolante",
+      "colorName": "Rosa cipria",
+      "size": "30 ml",
+      "category": "Cosmetici",
+      "imageKey": "p005"
+    },
+    {
+      "key": "p006-30ml",
+      "ean": "8009900000105",
+      "brand": "Aurum",
+      "name": "Balsamo Relax",
+      "colorName": "Fucsia",
+      "size": "30 ml",
+      "category": "Cosmetici",
+      "imageKey": "p006"
+    },
+    {
+      "key": "p007-30ml",
+      "ean": "8009900000112",
+      "brand": "Lumen Care",
+      "name": "Gel Calore",
+      "colorName": "Rosa cipria",
+      "size": "30 ml",
+      "category": "Cosmetici",
+      "imageKey": "p007"
+    },
+    {
+      "key": "p008-6pz",
+      "ean": "8009900000129",
+      "brand": "Nuvia",
+      "name": "Ultra Sottili",
+      "colorName": "Rosa cipria",
+      "size": "6 pz",
+      "category": "Preservativi",
+      "imageKey": "p008"
+    },
+    {
+      "key": "p009-6pz",
+      "ean": "8009900000136",
+      "brand": "Moira",
+      "name": "Classic",
+      "colorName": "Fucsia",
+      "size": "6 pz",
+      "category": "Preservativi",
+      "imageKey": "p009"
+    },
+    {
+      "key": "p010-6pz",
+      "ean": "8009900000143",
+      "brand": "Nuvia",
+      "name": "Extra Large",
+      "colorName": "Nero",
+      "size": "6 pz",
+      "category": "Preservativi",
+      "imageKey": "p010"
+    },
+    {
+      "key": "p011-6pz",
+      "ean": "8009900000150",
+      "brand": "Aurum",
+      "name": "Ritardanti",
+      "colorName": "Oro",
+      "size": "6 pz",
+      "category": "Preservativi",
+      "imageKey": "p011"
+    },
+    {
+      "key": "p012-Standard",
+      "ean": "8009900000167",
+      "brand": "Sensa",
+      "name": "Wave",
+      "colorName": "Viola",
+      "size": "Standard",
+      "category": "Vibratori",
+      "imageKey": "p012"
+    },
+    {
+      "key": "p013-Standard",
+      "ean": "8009900000174",
+      "brand": "Sensa",
+      "name": "Wave",
+      "colorName": "Nero",
+      "size": "Standard",
+      "category": "Vibratori",
+      "imageKey": "p013"
+    },
+    {
+      "key": "p014-Standard",
+      "ean": "8009900000181",
+      "brand": "Moira",
+      "name": "Orbit",
+      "colorName": "Oro",
+      "size": "Standard",
+      "category": "Vibratori",
+      "imageKey": "p014"
+    },
+    {
+      "key": "p015-Standard",
+      "ean": "8009900000198",
+      "brand": "Moira",
+      "name": "Orbit",
+      "colorName": "Fucsia",
+      "size": "Standard",
+      "category": "Vibratori",
+      "imageKey": "p015"
+    },
+    {
+      "key": "p016-Standard",
+      "ean": "8009900000204",
+      "brand": "Aurum",
+      "name": "Petal",
+      "colorName": "Rosa cipria",
+      "size": "Standard",
+      "category": "Vibratori",
+      "imageKey": "p016"
+    },
+    {
+      "key": "p017-Standard",
+      "ean": "8009900000211",
+      "brand": "Aurum",
+      "name": "Petal",
+      "colorName": "Viola",
+      "size": "Standard",
+      "category": "Vibratori",
+      "imageKey": "p017"
+    },
+    {
+      "key": "p018-Standard",
+      "ean": "8009900000228",
+      "brand": "Lumen Care",
+      "name": "Curve",
+      "colorName": "Verde",
+      "size": "Standard",
+      "category": "Vibratori",
+      "imageKey": "p018"
+    },
+    {
+      "key": "p019-Standard",
+      "ean": "8009900000235",
+      "brand": "Lumen Care",
+      "name": "Curve",
+      "colorName": "Oro",
+      "size": "Standard",
+      "category": "Vibratori",
+      "imageKey": "p019"
+    },
+    {
+      "key": "p020-Standard",
+      "ean": "8009900000242",
+      "brand": "Aurum",
+      "name": "Slim Classic",
+      "colorName": "Fucsia",
+      "size": "Standard",
+      "category": "Vibratori",
+      "imageKey": "p020"
+    },
+    {
+      "key": "p021-Standard",
+      "ean": "8009900000259",
+      "brand": "Aurum",
+      "name": "Slim Classic",
+      "colorName": "Verde",
+      "size": "Standard",
+      "category": "Vibratori",
+      "imageKey": "p021"
+    },
+    {
+      "key": "p022-Standard",
+      "ean": "8009900000266",
+      "brand": "Aurum",
+      "name": "Bullet",
+      "colorName": "Rosa cipria",
+      "size": "Standard",
+      "category": "Vibratori",
+      "imageKey": "p022"
+    },
+    {
+      "key": "p023-Standard",
+      "ean": "8009900000273",
+      "brand": "Aurum",
+      "name": "Bullet",
+      "colorName": "Oro",
+      "size": "Standard",
+      "category": "Vibratori",
+      "imageKey": "p023"
+    },
+    {
+      "key": "p024-Standard",
+      "ean": "8009900000280",
+      "brand": "Lumen Care",
+      "name": "Wand Mini",
+      "colorName": "Fucsia",
+      "size": "Standard",
+      "category": "Vibratori",
+      "imageKey": "p024"
+    },
+    {
+      "key": "p025-Standard",
+      "ean": "8009900000297",
+      "brand": "Lumen Care",
+      "name": "Wand Mini",
+      "colorName": "Viola",
+      "size": "Standard",
+      "category": "Vibratori",
+      "imageKey": "p025"
+    },
+    {
+      "key": "p026-200ml",
+      "ean": "8009900000303",
+      "brand": "Sensa",
+      "name": "Burro Corpo",
+      "colorName": "Blu",
+      "size": "200 ml",
+      "category": "Cosmetici",
+      "imageKey": "p026"
+    },
+    {
+      "key": "p027-200ml",
+      "ean": "8009900000310",
+      "brand": "Moira",
+      "name": "Scrub Sensuale",
+      "colorName": "Verde",
+      "size": "200 ml",
+      "category": "Cosmetici",
+      "imageKey": "p027"
+    },
+    {
+      "key": "p028-Standard",
+      "ean": "8009900000327",
+      "brand": "Sensa",
+      "name": "Anello Flex",
+      "colorName": "Verde",
+      "size": "Standard",
+      "category": "Accessori",
+      "imageKey": "p028"
+    },
+    {
+      "key": "p029-Standard",
+      "ean": "8009900000334",
+      "brand": "Velvora",
+      "name": "Anello Duo",
+      "colorName": "Blu",
+      "size": "Standard",
+      "category": "Accessori",
+      "imageKey": "p029"
+    }
+  ]
+}

@@ -1,0 +1,304 @@
+{
+  "synthetic": true,
+  "generatedWith": "src/scripts/demo-fixtures.ts",
+  "queries": [
+    {
+      "file": "q01-p001.jpg",
+      "expectedEan": "8009900000013",
+      "sameImageEans": [
+        "8009900000013",
+        "8009900000020"
+      ],
+      "kind": "in_catalog",
+      "note": "Lumen Care Gel Idratante Blu",
+      "bbox": {
+        "x": 0.1689453125,
+        "y": 0.15164835164835164,
+        "width": 0.732421875,
+        "height": 0.536996336996337
+      },
+      "hasBarcode": false
+    },
+    {
+      "file": "q02-p003.jpg",
+      "expectedEan": "8009900000051",
+      "sameImageEans": [
+        "8009900000051",
+        "8009900000068"
+      ],
+      "kind": "in_catalog",
+      "note": "Moira Silk Gel Fucsia",
+      "bbox": {
+        "x": 0.0947265625,
+        "y": 0.263003663003663,
+        "width": 0.7490234375,
+        "height": 0.5443223443223443
+      },
+      "hasBarcode": false
+    },
+    {
+      "file": "q03-p005.jpg",
+      "expectedEan": "8009900000099",
+      "sameImageEans": [
+        "8009900000099"
+      ],
+      "kind": "in_catalog",
+      "note": "Moira Crema Stimolante Rosa cipria",
+      "bbox": {
+        "x": 0.1142578125,
+        "y": 0.2644688644688645,
+        "width": 0.701171875,
+        "height": 0.5157509157509158
+      },
+      "hasBarcode": false
+    },
+    {
+      "file": "q04-p007.jpg",
+      "expectedEan": "8009900000112",
+      "sameImageEans": [
+        "8009900000112"
+      ],
+      "kind": "in_catalog",
+      "note": "Lumen Care Gel Calore Rosa cipria",
+      "bbox": {
+        "x": 0.087890625,
+        "y": 0.23663003663003662,
+        "width": 0.6953125,
+        "height": 0.5098901098901099
+      },
+      "hasBarcode": false
+    },
+    {
+      "file": "q05-p009.jpg",
+      "expectedEan": "8009900000136",
+      "sameImageEans": [
+        "8009900000136"
+      ],
+      "kind": "in_catalog_barcode_closeup",
+      "note": "Moira Classic Fucsia (primo piano con barcode leggibile)",
+      "bbox": {
+        "x": 0.0224609375,
+        "y": 0.1523809523809524,
+        "width": 0.8466796875,
+        "height": 0.6344322344322344
+      },
+      "hasBarcode": true
+    },
+    {
+      "file": "q06-p011.jpg",
+      "expectedEan": "8009900000150",
+      "sameImageEans": [
+        "8009900000150"
+      ],
+      "kind": "in_catalog_barcode_closeup",
+      "note": "Aurum Ritardanti Oro (primo piano con barcode leggibile)",
+      "bbox": {
+        "x": 0.0732421875,
+        "y": 0.08717948717948718,
+        "width": 0.9267578125,
+        "height": 0.693040293040293
+      },
+      "hasBarcode": true
+    },
+    {
+      "file": "q07-p013.jpg",
+      "expectedEan": "8009900000174",
+      "sameImageEans": [
+        "8009900000174"
+      ],
+      "kind": "in_catalog",
+      "note": "Sensa Wave Nero",
+      "bbox": {
+        "x": 0.1162109375,
+        "y": 0.14212454212454212,
+        "width": 0.8798828125,
+        "height": 0.6476190476190476
+      },
+      "hasBarcode": false
+    },
+    {
+      "file": "q08-p015.jpg",
+      "expectedEan": "8009900000198",
+      "sameImageEans": [
+        "8009900000198"
+      ],
+      "kind": "in_catalog",
+      "note": "Moira Orbit Fucsia",
+      "bbox": {
+        "x": 0.1240234375,
+        "y": 0.315018315018315,
+        "width": 0.720703125,
+        "height": 0.5238095238095238
+      },
+      "hasBarcode": false
+    },
+    {
+      "file": "q09-p017.jpg",
+      "expectedEan": "8009900000211",
+      "sameImageEans": [
+        "8009900000211"
+      ],
+      "kind": "in_catalog",
+      "note": "Aurum Petal Viola",
+      "bbox": {
+        "x": 0.134765625,
+        "y": 0.2608058608058608,
+        "width": 0.8466796875,
+        "height": 0.5963369963369963
+      },
+      "hasBarcode": false
+    },
+    {
+      "file": "q10-p019.jpg",
+      "expectedEan": "8009900000235",
+      "sameImageEans": [
+        "8009900000235"
+      ],
+      "kind": "in_catalog",
+      "note": "Lumen Care Curve Oro",
+      "bbox": {
+        "x": 0.2431640625,
+        "y": 0.22197802197802197,
+        "width": 0.6572265625,
+        "height": 0.47545787545787543
+      },
+      "hasBarcode": false
+    },
+    {
+      "file": "q11-p021.jpg",
+      "expectedEan": "8009900000259",
+      "sameImageEans": [
+        "8009900000259"
+      ],
+      "kind": "in_catalog",
+      "note": "Aurum Slim Classic Verde",
+      "bbox": {
+        "x": 0.1181640625,
+        "y": 0.24761904761904763,
+        "width": 0.828125,
+        "height": 0.6161172161172161
+      },
+      "hasBarcode": false
+    },
+    {
+      "file": "q12-p023.jpg",
+      "expectedEan": "8009900000273",
+      "sameImageEans": [
+        "8009900000273"
+      ],
+      "kind": "in_catalog",
+      "note": "Aurum Bullet Oro",
+      "bbox": {
+        "x": 0.1220703125,
+        "y": 0.2139194139194139,
+        "width": 0.7099609375,
+        "height": 0.526007326007326
+      },
+      "hasBarcode": false
+    },
+    {
+      "file": "q13-p025.jpg",
+      "expectedEan": "8009900000297",
+      "sameImageEans": [
+        "8009900000297"
+      ],
+      "kind": "in_catalog",
+      "note": "Lumen Care Wand Mini Viola",
+      "bbox": {
+        "x": 0.1279296875,
+        "y": 0.28424908424908424,
+        "width": 0.642578125,
+        "height": 0.48864468864468863
+      },
+      "hasBarcode": false
+    },
+    {
+      "file": "q14-p027.jpg",
+      "expectedEan": "8009900000310",
+      "sameImageEans": [
+        "8009900000310"
+      ],
+      "kind": "in_catalog",
+      "note": "Moira Scrub Sensuale Verde",
+      "bbox": {
+        "x": 0.1474609375,
+        "y": 0.2783882783882784,
+        "width": 0.681640625,
+        "height": 0.48644688644688644
+      },
+      "hasBarcode": false
+    },
+    {
+      "file": "q15-p029.jpg",
+      "expectedEan": "8009900000334",
+      "sameImageEans": [
+        "8009900000334"
+      ],
+      "kind": "in_catalog",
+      "note": "Velvora Anello Duo Blu",
+      "bbox": {
+        "x": 0.08984375,
+        "y": 0.10329670329670329,
+        "width": 0.8876953125,
+        "height": 0.6527472527472528
+      },
+      "hasBarcode": false
+    },
+    {
+      "file": "q16-outside-x1.jpg",
+      "expectedEan": null,
+      "sameImageEans": [],
+      "kind": "out_of_catalog",
+      "note": "Orbix Tazza Termica (non a catalogo; forma simile a prodotti presenti)",
+      "bbox": {
+        "x": 0.1162109375,
+        "y": 0.15677655677655677,
+        "width": 0.8583984375,
+        "height": 0.6373626373626373
+      },
+      "hasBarcode": false
+    },
+    {
+      "file": "q17-outside-x2.jpg",
+      "expectedEan": null,
+      "sameImageEans": [],
+      "kind": "out_of_catalog",
+      "note": "Kappa Tools Cacciavite (non a catalogo; forma simile a prodotti presenti)",
+      "bbox": {
+        "x": 0.1337890625,
+        "y": 0.2608058608058608,
+        "width": 0.6953125,
+        "height": 0.5135531135531135
+      },
+      "hasBarcode": false
+    },
+    {
+      "file": "q18-outside-x3.jpg",
+      "expectedEan": null,
+      "sameImageEans": [],
+      "kind": "out_of_catalog",
+      "note": "Nordhus Scatola Scarpe (non a catalogo; forma simile a prodotti presenti)",
+      "bbox": {
+        "x": 0.12109375,
+        "y": 0.20366300366300366,
+        "width": 0.7109375,
+        "height": 0.5362637362637362
+      },
+      "hasBarcode": false
+    },
+    {
+      "file": "q19-outside-x4.jpg",
+      "expectedEan": null,
+      "sameImageEans": [],
+      "kind": "out_of_catalog",
+      "note": "Aqualine Borraccia (non a catalogo; forma simile a prodotti presenti)",
+      "bbox": {
+        "x": 0.08203125,
+        "y": 0.28205128205128205,
+        "width": 0.759765625,
+        "height": 0.5677655677655677
+      },
+      "hasBarcode": false
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "comparator",
+      "credentials": [{ "accessKey": "comparator", "secretKey": "comparator_dev_secret" }],
+      "actions": ["Admin", "Read", "List", "Tagging", "Write"]
+    }
+  ]
+}

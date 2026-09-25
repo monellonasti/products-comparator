@@ -1,0 +1,13 @@
+# Build scripts intentionally disabled:
+# - onnxruntime-node: CPU binaries (win32/linux/darwin, x64/arm64) ship inside the package;
+#   its install script only fetches optional GPU (CUDA/TensorRT) providers, not used in V1.
+# - protobufjs: postinstall only prints a version compatibility notice.
+allowBuilds:
+  onnxruntime-node: false
+  protobufjs: false
+minimumReleaseAgeExclude:
+  - '@aws-sdk/client-s3@3.1140.0'
+  - '@vitest/mocker@5.0.2'
+  - '@vitest/spy@5.0.2'
+  - vite@8.3.1
+  - vitest@5.0.2

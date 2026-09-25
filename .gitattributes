@@ -1,0 +1,8 @@
+* text=auto eol=lf
+*.xlsx binary
+*.png binary
+*.jpg binary
+*.webp binary
+# Demo price lists reproduce real supplier exports (CRLF, Windows-1252): keep bytes as-is
+fixtures/demo/*.csv -text
+templates/*.csv -text

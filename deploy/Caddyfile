@@ -1,0 +1,11 @@
+# Automatic HTTPS (Let's Encrypt) in front of the API. Only this service is reachable from outside.
+{$APP_DOMAIN} {
+	encode zstd gzip
+	request_body {
+		max_size 64MB
+	}
+	# /metrics is internal: scrape it from the private network with METRICS_TOKEN, never publicly.
+	@metrics path /metrics
+	respond @metrics 404
+	reverse_proxy api:3000
+}

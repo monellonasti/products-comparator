@@ -1,0 +1,12 @@
+node_modules
+dist
+.models
+.data*
+.env
+.env.*
+!.env.example
+bench-results
+fixtures/demo/images
+fixtures/demo/queries
+.git
+*.log

@@ -1,0 +1,865 @@
+{
+  "generatedAt": "2026-09-25T11:56:00.171Z",
+  "set": "fixtures\\demo\\queries.json",
+  "synthetic": true,
+  "crop": true,
+  "model": {
+    "key": "siglip2-base-p16-224@ba1f3b0/pp1",
+    "thresholds": {
+      "similar": 0.55,
+      "possible": 0.78,
+      "calibrated": false
+    }
+  },
+  "catalogue": {
+    "assets": 45,
+    "indexed": 45,
+    "failed": 0,
+    "pending": 0
+  },
+  "hardware": {
+    "cpu": "Snapdragon(R) X Elite - X1E80100 - Qualcomm(R) Oryon(TM) CPU",
+    "cores": 12,
+    "ramGb": 17,
+    "platform": "win32/arm64",
+    "node": "v24.15.0"
+  },
+  "counts": {
+    "queries": 19,
+    "inCatalogue": 14,
+    "outOfCatalogue": 5,
+    "missingLabels": 1,
+    "leakage": 0
+  },
+  "metrics": {
+    "recallAt1Strict": 0.8571428571428571,
+    "recallAt5Strict": 1,
+    "recallAt1Lenient": 0.8571428571428571,
+    "recallAt5Lenient": 1,
+    "negatives": {
+      "falseMatchesAtPossible": 0,
+      "abstainedBelowSimilar": 1,
+      "total": 5
+    },
+    "barcode": {
+      "decoded": 2,
+      "confirmedCorrect": 1
+    },
+    "scores": {
+      "correctTop1": {
+        "min": 0.7479224796110463,
+        "p50": 0.8168329999296996,
+        "max": 0.8597432631177686
+      },
+      "negativeTop1": {
+        "min": 0.549608485389009,
+        "p50": 0.5777227282524109,
+        "max": 0.7491966485977173
+      }
+    },
+    "suggestedThresholds": {
+      "possible": 0.7786265379599799,
+      "similar": null,
+      "note": "possible: minimo score top-1 corretto sopra il massimo dei negativi, SOLO su questo set; similar: richiede valutazione delle alternative da parte di un operatore."
+    }
+  },
+  "latencyMs": {
+    "preprocess": {
+      "p50": 95,
+      "p95": 122
+    },
+    "embed": {
+      "p50": 900,
+      "p95": 983
+    },
+    "ann": {
+      "p50": 49,
+      "p95": 65
+    },
+    "aggregate": {
+      "p50": 3,
+      "p95": 7
+    }
+  },
+  "rows": [
+    {
+      "file": "q01-p001.jpg",
+      "kind": "in_catalog",
+      "expected": "8009900000013",
+      "inCatalogue": true,
+      "rankStrict": 1,
+      "rankLenient": 1,
+      "top1Score": 0.8414804840970328,
+      "expectedScore": 0.8414804840970328,
+      "top5": [
+        {
+          "productId": "29e7fada-2e80-455e-90de-4dd65625b44d",
+          "score": 0.841
+        },
+        {
+          "productId": "c60e4aaa-84bd-4ee8-96ee-11f3410f3fdb",
+          "score": 0.841
+        },
+        {
+          "productId": "3f03886a-7f15-4160-bcca-3cfff7d2f863",
+          "score": 0.827
+        },
+        {
+          "productId": "5a20ef8b-53be-4a1b-bcb0-92c9bab6e693",
+          "score": 0.747
+        },
+        {
+          "productId": "510fa6a2-e6bb-4933-bf6a-27db8822df8f",
+          "score": 0.704
+        }
+      ],
+      "barcode": null,
+      "barcodeMatches": false,
+      "leakage": false,
+      "ms": {
+        "preprocess": 115.5668999999998,
+        "embed": 936.5915000000005,
+        "ann": 22.65769999999975,
+        "aggregate": 6.774900000000343
+      }
+    },
+    {
+      "file": "q02-p003.jpg",
+      "kind": "in_catalog",
+      "expected": "8009900000051",
+      "inCatalogue": true,
+      "rankStrict": 1,
+      "rankLenient": 1,
+      "top1Score": 0.8597432631177686,
+      "expectedScore": 0.8597432631177686,
+      "top5": [
+        {
+          "productId": "d14f9394-a41a-47fe-a38b-dfa352a7a0b9",
+          "score": 0.86
+        },
+        {
+          "productId": "c6e87de6-d54d-4103-ba23-0c11ca532715",
+          "score": 0.823
+        },
+        {
+          "productId": "a36a83d9-43b5-489e-ba78-5923abc0a2ec",
+          "score": 0.781
+        },
+        {
+          "productId": "9b85dbd1-0537-47a7-a5a2-d72d586d75ee",
+          "score": 0.781
+        },
+        {
+          "productId": "19e0ccb5-d3fb-403f-b9e2-321a962eee0e",
+          "score": 0.717
+        }
+      ],
+      "barcode": null,
+      "barcodeMatches": false,
+      "leakage": false,
+      "ms": {
+        "preprocess": 121.60529999999926,
+        "embed": 928.0724,
+        "ann": 59.88060000000041,
+        "aggregate": 3.856999999999971
+      }
+    },
+    {
+      "file": "q03-p005.jpg",
+      "kind": "in_catalog",
+      "expected": "8009900000099",
+      "inCatalogue": true,
+      "rankStrict": 1,
+      "rankLenient": 1,
+      "top1Score": 0.808202409988714,
+      "expectedScore": 0.808202409988714,
+      "top5": [
+        {
+          "productId": "19e0ccb5-d3fb-403f-b9e2-321a962eee0e",
+          "score": 0.808
+        },
+        {
+          "productId": "d14f9394-a41a-47fe-a38b-dfa352a7a0b9",
+          "score": 0.69
+        },
+        {
+          "productId": "ed056a87-8477-4444-a496-42398af3e9ec",
+          "score": 0.682
+        },
+        {
+          "productId": "a36a83d9-43b5-489e-ba78-5923abc0a2ec",
+          "score": 0.675
+        },
+        {
+          "productId": "9b85dbd1-0537-47a7-a5a2-d72d586d75ee",
+          "score": 0.675
+        }
+      ],
+      "barcode": null,
+      "barcodeMatches": false,
+      "leakage": false,
+      "ms": {
+        "preprocess": 103.85639999999967,
+        "embed": 982.7968000000001,
+        "ann": 48.777000000000044,
+        "aggregate": 2.956000000000131
+      }
+    },
+    {
+      "file": "q04-p007.jpg",
+      "kind": "in_catalog",
+      "expected": "8009900000112",
+      "inCatalogue": true,
+      "rankStrict": 1,
+      "rankLenient": 1,
+      "top1Score": 0.8286084779682306,
+      "expectedScore": 0.8286084779682306,
+      "top5": [
+        {
+          "productId": "5a20ef8b-53be-4a1b-bcb0-92c9bab6e693",
+          "score": 0.829
+        },
+        {
+          "productId": "29e7fada-2e80-455e-90de-4dd65625b44d",
+          "score": 0.751
+        },
+        {
+          "productId": "c60e4aaa-84bd-4ee8-96ee-11f3410f3fdb",
+          "score": 0.751
+        },
+        {
+          "productId": "ffb3cc95-b6b5-4ca0-994c-a0a31067415e",
+          "score": 0.725
+        },
+        {
+          "productId": "3f03886a-7f15-4160-bcca-3cfff7d2f863",
+          "score": 0.715
+        }
+      ],
+      "barcode": null,
+      "barcodeMatches": false,
+      "leakage": false,
+      "ms": {
+        "preprocess": 74.95939999999973,
+        "embed": 812.9915000000001,
+        "ann": 65.09159999999974,
+        "aggregate": 3.8114000000005035
+      }
+    },
+    {
+      "file": "q05-p009.jpg",
+      "kind": "in_catalog_barcode_closeup",
+      "expected": "8009900000136",
+      "inCatalogue": true,
+      "rankStrict": 1,
+      "rankLenient": 1,
+      "top1Score": 0.8464892919646865,
+      "expectedScore": 0.8464892919646865,
+      "top5": [
+        {
+          "productId": "ed056a87-8477-4444-a496-42398af3e9ec",
+          "score": 0.846
+        },
+        {
+          "productId": "fe0b60d3-587f-4b8c-b127-fa8021211b36",
+          "score": 0.708
+        },
+        {
+          "productId": "97202d6d-3c67-47c6-a6e9-8be5dba78cd5",
+          "score": 0.703
+        },
+        {
+          "productId": "c6e87de6-d54d-4103-ba23-0c11ca532715",
+          "score": 0.675
+        },
+        {
+          "productId": "d14f9394-a41a-47fe-a38b-dfa352a7a0b9",
+          "score": 0.675
+        }
+      ],
+      "barcode": "08009900000136",
+      "barcodeMatches": true,
+      "leakage": false,
+      "ms": {
+        "preprocess": 102.85789999999906,
+        "embed": 876.9392000000007,
+        "ann": 48.63140000000021,
+        "aggregate": 3.253000000000611
+      }
+    },
+    {
+      "file": "q06-p011.jpg",
+      "kind": "in_catalog_barcode_closeup",
+      "expected": "8009900000150",
+      "inCatalogue": false,
+      "rankStrict": null,
+      "rankLenient": null,
+      "top1Score": 0.7491966485977173,
+      "expectedScore": null,
+      "top5": [
+        {
+          "productId": "551e7ed7-d359-42e3-a735-be2cebe8ce1d",
+          "score": 0.749
+        },
+        {
+          "productId": "6d6be74b-6c90-4156-8a05-1181b668f3f0",
+          "score": 0.717
+        },
+        {
+          "productId": "fe0b60d3-587f-4b8c-b127-fa8021211b36",
+          "score": 0.691
+        },
+        {
+          "productId": "ed056a87-8477-4444-a496-42398af3e9ec",
+          "score": 0.679
+        },
+        {
+          "productId": "fc1d7cdd-03c4-4789-aff8-f867744c5a6d",
+          "score": 0.678
+        }
+      ],
+      "barcode": "08009900000150",
+      "barcodeMatches": false,
+      "leakage": false,
+      "ms": {
+        "preprocess": 115.57010000000082,
+        "embed": 848.350699999999,
+        "ann": 49.89969999999994,
+        "aggregate": 3.2255000000004657
+      }
+    },
+    {
+      "file": "q07-p013.jpg",
+      "kind": "in_catalog",
+      "expected": "8009900000174",
+      "inCatalogue": true,
+      "rankStrict": 1,
+      "rankLenient": 1,
+      "top1Score": 0.8010210990905762,
+      "expectedScore": 0.8010210990905762,
+      "top5": [
+        {
+          "productId": "6746c95b-9ffa-4398-8377-02a9c5a68634",
+          "score": 0.801
+        },
+        {
+          "productId": "26e8b1ce-3e7f-44ea-a9b4-31aceea00f2e",
+          "score": 0.755
+        },
+        {
+          "productId": "b3a16837-0c1a-48c1-968d-9cf4e6380f95",
+          "score": 0.73
+        },
+        {
+          "productId": "2ee269c9-db8a-4b7c-9a23-9a5fb136e784",
+          "score": 0.664
+        },
+        {
+          "productId": "c7ee8f31-895b-418f-bfc7-3cf955826692",
+          "score": 0.624
+        }
+      ],
+      "barcode": null,
+      "barcodeMatches": false,
+      "leakage": false,
+      "ms": {
+        "preprocess": 103.96630000000005,
+        "embed": 891.514000000001,
+        "ann": 49.405799999998635,
+        "aggregate": 3.149199999999837
+      }
+    },
+    {
+      "file": "q08-p015.jpg",
+      "kind": "in_catalog",
+      "expected": "8009900000198",
+      "inCatalogue": true,
+      "rankStrict": 1,
+      "rankLenient": 1,
+      "top1Score": 0.7967536924334581,
+      "expectedScore": 0.7967536924334581,
+      "top5": [
+        {
+          "productId": "424560a5-c98a-4df1-a072-97101a0c2685",
+          "score": 0.797
+        },
+        {
+          "productId": "c7ee8f31-895b-418f-bfc7-3cf955826692",
+          "score": 0.69
+        },
+        {
+          "productId": "26e8b1ce-3e7f-44ea-a9b4-31aceea00f2e",
+          "score": 0.653
+        },
+        {
+          "productId": "ffb3cc95-b6b5-4ca0-994c-a0a31067415e",
+          "score": 0.64
+        },
+        {
+          "productId": "ed056a87-8477-4444-a496-42398af3e9ec",
+          "score": 0.634
+        }
+      ],
+      "barcode": null,
+      "barcodeMatches": false,
+      "leakage": false,
+      "ms": {
+        "preprocess": 71.372800000001,
+        "embed": 885.0136999999995,
+        "ann": 48.91480000000047,
+        "aggregate": 2.1559999999990396
+      }
+    },
+    {
+      "file": "q09-p017.jpg",
+      "kind": "in_catalog",
+      "expected": "8009900000211",
+      "inCatalogue": true,
+      "rankStrict": 1,
+      "rankLenient": 1,
+      "top1Score": 0.7925417175938746,
+      "expectedScore": 0.7925417175938746,
+      "top5": [
+        {
+          "productId": "7d89a400-ed69-4f26-b5fb-3f578d9b4d6e",
+          "score": 0.793
+        },
+        {
+          "productId": "0889870e-ff1a-40ca-8072-7ae3e4d6c14b",
+          "score": 0.793
+        },
+        {
+          "productId": "fcf769e6-cb4e-4761-a4e9-12421b280312",
+          "score": 0.775
+        },
+        {
+          "productId": "6d6be74b-6c90-4156-8a05-1181b668f3f0",
+          "score": 0.708
+        },
+        {
+          "productId": "0b98927d-378e-4721-8b29-11818219ca7f",
+          "score": 0.706
+        }
+      ],
+      "barcode": null,
+      "barcodeMatches": false,
+      "leakage": false,
+      "ms": {
+        "preprocess": 100.53789999999935,
+        "embed": 884.4089000000004,
+        "ann": 48.86789999999928,
+        "aggregate": 3.854300000000876
+      }
+    },
+    {
+      "file": "q10-p019.jpg",
+      "kind": "in_catalog",
+      "expected": "8009900000235",
+      "inCatalogue": true,
+      "rankStrict": 1,
+      "rankLenient": 1,
+      "top1Score": 0.7786265379599799,
+      "expectedScore": 0.7786265379599799,
+      "top5": [
+        {
+          "productId": "1f8c3997-6b5f-4182-8695-d51005999196",
+          "score": 0.779
+        },
+        {
+          "productId": "5d2712b1-b1af-4819-a05c-0fd46c5edb15",
+          "score": 0.728
+        },
+        {
+          "productId": "ffb3cc95-b6b5-4ca0-994c-a0a31067415e",
+          "score": 0.657
+        },
+        {
+          "productId": "510fa6a2-e6bb-4933-bf6a-27db8822df8f",
+          "score": 0.643
+        },
+        {
+          "productId": "c7ee8f31-895b-418f-bfc7-3cf955826692",
+          "score": 0.59
+        }
+      ],
+      "barcode": null,
+      "barcodeMatches": false,
+      "leakage": false,
+      "ms": {
+        "preprocess": 92.5041999999994,
+        "embed": 910.8207000000002,
+        "ann": 46.85570000000007,
+        "aggregate": 2.80370000000039
+      }
+    },
+    {
+      "file": "q11-p021.jpg",
+      "kind": "in_catalog",
+      "expected": "8009900000259",
+      "inCatalogue": true,
+      "rankStrict": 1,
+      "rankLenient": 1,
+      "top1Score": 0.8168329999296996,
+      "expectedScore": 0.8168329999296996,
+      "top5": [
+        {
+          "productId": "6d6be74b-6c90-4156-8a05-1181b668f3f0",
+          "score": 0.817
+        },
+        {
+          "productId": "551e7ed7-d359-42e3-a735-be2cebe8ce1d",
+          "score": 0.793
+        },
+        {
+          "productId": "fc1d7cdd-03c4-4789-aff8-f867744c5a6d",
+          "score": 0.732
+        },
+        {
+          "productId": "0b98927d-378e-4721-8b29-11818219ca7f",
+          "score": 0.7
+        },
+        {
+          "productId": "fcf769e6-cb4e-4761-a4e9-12421b280312",
+          "score": 0.679
+        }
+      ],
+      "barcode": null,
+      "barcodeMatches": false,
+      "leakage": false,
+      "ms": {
+        "preprocess": 89.92909999999756,
+        "embed": 910.2777999999998,
+        "ann": 49.78280000000086,
+        "aggregate": 2.8958999999995285
+      }
+    },
+    {
+      "file": "q12-p023.jpg",
+      "kind": "in_catalog",
+      "expected": "8009900000273",
+      "inCatalogue": true,
+      "rankStrict": 4,
+      "rankLenient": 4,
+      "top1Score": 0.7138328722815006,
+      "expectedScore": 0.6473825170809853,
+      "top5": [
+        {
+          "productId": "551e7ed7-d359-42e3-a735-be2cebe8ce1d",
+          "score": 0.714
+        },
+        {
+          "productId": "ffb3cc95-b6b5-4ca0-994c-a0a31067415e",
+          "score": 0.666
+        },
+        {
+          "productId": "6d6be74b-6c90-4156-8a05-1181b668f3f0",
+          "score": 0.664
+        },
+        {
+          "productId": "fc1d7cdd-03c4-4789-aff8-f867744c5a6d",
+          "score": 0.647
+        },
+        {
+          "productId": "510fa6a2-e6bb-4933-bf6a-27db8822df8f",
+          "score": 0.644
+        }
+      ],
+      "barcode": null,
+      "barcodeMatches": false,
+      "leakage": false,
+      "ms": {
+        "preprocess": 91.04629999999815,
+        "embed": 913.3711000000003,
+        "ann": 47.30720000000292,
+        "aggregate": 2.9830999999976484
+      }
+    },
+    {
+      "file": "q13-p025.jpg",
+      "kind": "in_catalog",
+      "expected": "8009900000297",
+      "inCatalogue": true,
+      "rankStrict": 2,
+      "rankLenient": 2,
+      "top1Score": 0.8581416351157126,
+      "expectedScore": 0.8528921779522745,
+      "top5": [
+        {
+          "productId": "ffb3cc95-b6b5-4ca0-994c-a0a31067415e",
+          "score": 0.858
+        },
+        {
+          "productId": "510fa6a2-e6bb-4933-bf6a-27db8822df8f",
+          "score": 0.853
+        },
+        {
+          "productId": "1f8c3997-6b5f-4182-8695-d51005999196",
+          "score": 0.763
+        },
+        {
+          "productId": "5d2712b1-b1af-4819-a05c-0fd46c5edb15",
+          "score": 0.754
+        },
+        {
+          "productId": "551e7ed7-d359-42e3-a735-be2cebe8ce1d",
+          "score": 0.673
+        }
+      ],
+      "barcode": null,
+      "barcodeMatches": false,
+      "leakage": false,
+      "ms": {
+        "preprocess": 87.25890000000072,
+        "embed": 895.5053000000007,
+        "ann": 62.21229999999923,
+        "aggregate": 2.934000000001106
+      }
+    },
+    {
+      "file": "q14-p027.jpg",
+      "kind": "in_catalog",
+      "expected": "8009900000310",
+      "inCatalogue": true,
+      "rankStrict": 1,
+      "rankLenient": 1,
+      "top1Score": 0.8477096123435781,
+      "expectedScore": 0.8477096123435781,
+      "top5": [
+        {
+          "productId": "f1a59105-1fb8-44ac-977c-1c1b4c718405",
+          "score": 0.848
+        },
+        {
+          "productId": "19e0ccb5-d3fb-403f-b9e2-321a962eee0e",
+          "score": 0.727
+        },
+        {
+          "productId": "a36a83d9-43b5-489e-ba78-5923abc0a2ec",
+          "score": 0.695
+        },
+        {
+          "productId": "9b85dbd1-0537-47a7-a5a2-d72d586d75ee",
+          "score": 0.695
+        },
+        {
+          "productId": "d14f9394-a41a-47fe-a38b-dfa352a7a0b9",
+          "score": 0.665
+        }
+      ],
+      "barcode": null,
+      "barcodeMatches": false,
+      "leakage": false,
+      "ms": {
+        "preprocess": 92.50669999999809,
+        "embed": 905.3482000000004,
+        "ann": 46.769200000002456,
+        "aggregate": 2.7386999999980617
+      }
+    },
+    {
+      "file": "q15-p029.jpg",
+      "kind": "in_catalog",
+      "expected": "8009900000334",
+      "inCatalogue": true,
+      "rankStrict": 1,
+      "rankLenient": 1,
+      "top1Score": 0.7479224796110463,
+      "expectedScore": 0.7479224796110463,
+      "top5": [
+        {
+          "productId": "5275ef2e-c03a-4f2f-98ea-a2ca7e11b436",
+          "score": 0.748
+        },
+        {
+          "productId": "2ee269c9-db8a-4b7c-9a23-9a5fb136e784",
+          "score": 0.599
+        },
+        {
+          "productId": "fe0b60d3-587f-4b8c-b127-fa8021211b36",
+          "score": 0.559
+        },
+        {
+          "productId": "ed056a87-8477-4444-a496-42398af3e9ec",
+          "score": 0.538
+        },
+        {
+          "productId": "97202d6d-3c67-47c6-a6e9-8be5dba78cd5",
+          "score": 0.526
+        }
+      ],
+      "barcode": null,
+      "barcodeMatches": false,
+      "leakage": false,
+      "ms": {
+        "preprocess": 94.67209999999977,
+        "embed": 882.0649999999987,
+        "ann": 48.86149999999907,
+        "aggregate": 2.458200000000943
+      }
+    },
+    {
+      "file": "q16-outside-x1.jpg",
+      "kind": "out_of_catalog",
+      "expected": null,
+      "inCatalogue": false,
+      "rankStrict": null,
+      "rankLenient": null,
+      "top1Score": 0.5777227282524109,
+      "expectedScore": null,
+      "top5": [
+        {
+          "productId": "f1a59105-1fb8-44ac-977c-1c1b4c718405",
+          "score": 0.578
+        },
+        {
+          "productId": "19e0ccb5-d3fb-403f-b9e2-321a962eee0e",
+          "score": 0.541
+        },
+        {
+          "productId": "5795a6e6-4f09-485c-8696-6a7fa78d2f56",
+          "score": 0.536
+        },
+        {
+          "productId": "a36a83d9-43b5-489e-ba78-5923abc0a2ec",
+          "score": 0.528
+        },
+        {
+          "productId": "9b85dbd1-0537-47a7-a5a2-d72d586d75ee",
+          "score": 0.528
+        }
+      ],
+      "barcode": null,
+      "barcodeMatches": false,
+      "leakage": false,
+      "ms": {
+        "preprocess": 111.06520000000091,
+        "embed": 884.9818999999989,
+        "ann": 51.73530000000028,
+        "aggregate": 3.454200000000128
+      }
+    },
+    {
+      "file": "q17-outside-x2.jpg",
+      "kind": "out_of_catalog",
+      "expected": null,
+      "inCatalogue": false,
+      "rankStrict": null,
+      "rankLenient": null,
+      "top1Score": 0.5706355911872153,
+      "expectedScore": null,
+      "top5": [
+        {
+          "productId": "551e7ed7-d359-42e3-a735-be2cebe8ce1d",
+          "score": 0.571
+        },
+        {
+          "productId": "510fa6a2-e6bb-4933-bf6a-27db8822df8f",
+          "score": 0.57
+        },
+        {
+          "productId": "ffb3cc95-b6b5-4ca0-994c-a0a31067415e",
+          "score": 0.565
+        },
+        {
+          "productId": "6d6be74b-6c90-4156-8a05-1181b668f3f0",
+          "score": 0.553
+        },
+        {
+          "productId": "fc1d7cdd-03c4-4789-aff8-f867744c5a6d",
+          "score": 0.528
+        }
+      ],
+      "barcode": null,
+      "barcodeMatches": false,
+      "leakage": false,
+      "ms": {
+        "preprocess": 101.80870000000141,
+        "embed": 912.8981000000022,
+        "ann": 50.15819999999803,
+        "aggregate": 3.0636999999987893
+      }
+    },
+    {
+      "file": "q18-outside-x3.jpg",
+      "kind": "out_of_catalog",
+      "expected": null,
+      "inCatalogue": false,
+      "rankStrict": null,
+      "rankLenient": null,
+      "top1Score": 0.549608485389009,
+      "expectedScore": null,
+      "top5": [
+        {
+          "productId": "f1a59105-1fb8-44ac-977c-1c1b4c718405",
+          "score": 0.55
+        },
+        {
+          "productId": "ed056a87-8477-4444-a496-42398af3e9ec",
+          "score": 0.541
+        },
+        {
+          "productId": "fe0b60d3-587f-4b8c-b127-fa8021211b36",
+          "score": 0.522
+        },
+        {
+          "productId": "97202d6d-3c67-47c6-a6e9-8be5dba78cd5",
+          "score": 0.516
+        },
+        {
+          "productId": "2ee269c9-db8a-4b7c-9a23-9a5fb136e784",
+          "score": 0.497
+        }
+      ],
+      "barcode": null,
+      "barcodeMatches": false,
+      "leakage": false,
+      "ms": {
+        "preprocess": 92.67610000000059,
+        "embed": 899.8768999999993,
+        "ann": 47.843800000002375,
+        "aggregate": 2.659299999999348
+      }
+    },
+    {
+      "file": "q19-outside-x4.jpg",
+      "kind": "out_of_catalog",
+      "expected": null,
+      "inCatalogue": false,
+      "rankStrict": null,
+      "rankLenient": null,
+      "top1Score": 0.7071548911081225,
+      "expectedScore": null,
+      "top5": [
+        {
+          "productId": "29e7fada-2e80-455e-90de-4dd65625b44d",
+          "score": 0.707
+        },
+        {
+          "productId": "c60e4aaa-84bd-4ee8-96ee-11f3410f3fdb",
+          "score": 0.707
+        },
+        {
+          "productId": "7f73d5e9-dc43-477d-bf53-2dd0f78d2f5d",
+          "score": 0.695
+        },
+        {
+          "productId": "3f03886a-7f15-4160-bcca-3cfff7d2f863",
+          "score": 0.672
+        },
+        {
+          "productId": "1597792d-8792-4eb2-a9b3-26d7343737c6",
+          "score": 0.663
+        }
+      ],
+      "barcode": null,
+      "barcodeMatches": false,
+      "leakage": false,
+      "ms": {
+        "preprocess": 91.05360000000292,
+        "embed": 919.3634999999995,
+        "ann": 51.22559999999794,
+        "aggregate": 3.3770000000004075
+      }
+    }
+  ]
+}

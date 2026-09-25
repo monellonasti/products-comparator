@@ -1,0 +1,129 @@
+{
+  "generatedAt": "2026-09-25T11:50:34.815Z",
+  "synthetic": true,
+  "dataset": {
+    "products": 60000,
+    "offers": 110000,
+    "vectors": 60000
+  },
+  "setupMs": {},
+  "environment": {
+    "cpu": "Snapdragon(R) X Elite - X1E80100 - Qualcomm(R) Oryon(TM) CPU",
+    "cores": 12,
+    "ramGb": 17,
+    "platform": "win32/arm64",
+    "node": "v24.15.0",
+    "postgres": "18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)",
+    "visionThreads": 2,
+    "visionConcurrency": 2,
+    "model": "siglip2-base-p16-224@ba1f3b0/pp1",
+    "users": 5
+  },
+  "api": {
+    "requests": 200,
+    "errors": 0,
+    "p50": 59,
+    "p95": 150,
+    "byScenario": {
+      "catalogo pagina 1": {
+        "n": 25,
+        "p50": 59,
+        "p95": 73,
+        "max": 75
+      },
+      "catalogo pagina profonda (offset 5000)": {
+        "n": 25,
+        "p50": 64,
+        "p95": 82,
+        "max": 88
+      },
+      "testo \"gel rosa\"": {
+        "n": 25,
+        "p50": 114,
+        "p95": 129,
+        "max": 159
+      },
+      "testo con refuso \"vibratre\"": {
+        "n": 25,
+        "p50": 147,
+        "p95": 162,
+        "max": 188
+      },
+      "EAN esatto": {
+        "n": 25,
+        "p50": 16,
+        "p95": 25,
+        "max": 54
+      },
+      "filtri fornitore+disponibilità+prezzo": {
+        "n": 25,
+        "p50": 63,
+        "p95": 141,
+        "max": 197
+      },
+      "scheda prodotto": {
+        "n": 25,
+        "p50": 18,
+        "p95": 28,
+        "max": 29
+      },
+      "facet filtri": {
+        "n": 25,
+        "p50": 4,
+        "p95": 8,
+        "max": 9
+      }
+    }
+  },
+  "annOnly": {
+    "queries": 200,
+    "p50": 52,
+    "p95": 253
+  },
+  "photoSearch": {
+    "modelLoadMs": 1784,
+    "oneUser": {
+      "n": 10,
+      "errors": 0,
+      "errorStatuses": [],
+      "client": {
+        "p50": 1238,
+        "p95": 1844
+      },
+      "server": {
+        "p50": 1220,
+        "p95": 1793
+      },
+      "embed": {
+        "p50": 903,
+        "p95": 1023
+      },
+      "ann": {
+        "p50": 1006,
+        "p95": 1186
+      }
+    },
+    "concurrent": {
+      "n": 25,
+      "errors": 0,
+      "errorStatuses": [],
+      "client": {
+        "p50": 4683,
+        "p95": 5861
+      },
+      "server": {
+        "p50": 4519,
+        "p95": 4797
+      },
+      "embed": {
+        "p50": 1835,
+        "p95": 4152
+      },
+      "ann": {
+        "p50": 3048,
+        "p95": 4563
+      }
+    }
+  },
+  "totalMs": 47259
+}

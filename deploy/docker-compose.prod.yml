@@ -1,0 +1,63 @@
+# Production-oriented stack for a single VM. Only the reverse proxy publishes ports (80/443).
+# Secrets come from deploy/.env.production (NOT committed) — see docs/OPERATIONS.md.
+# Object storage: prefer a managed S3 bucket (private). The bundled SeaweedFS service is optional.
+#   docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.production up -d --build
+name: products-comparator
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.1-pg18
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: comparator
+    volumes:
+      - pgdata:/var/lib/postgresql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d comparator"]
+      interval: 10s
+      retries: 10
+
+  api:
+    build: ..
+    env_file: .env.production
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      VISION_CACHE_DIR: /app/.models
+    volumes:
+      - models:/app/.models
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  worker:
+    build: ..
+    command: ["node", "src/worker/index.ts"]
+    env_file: .env.production
+    environment:
+      NODE_ENV: production
+      VISION_CACHE_DIR: /app/.models
+    volumes:
+      - models:/app/.models
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?}
+    restart: unless-stopped
+    depends_on: [api]
+
+volumes:
+  pgdata:
+  models:
+  caddy_data:

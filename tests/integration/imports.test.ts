@@ -1,0 +1,206 @@
+import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { pool } from '../../src/db/pool.ts';
+import { runImport } from '../../src/imports/pipeline.ts';
+import { createSupplier, importCsv, resetDatabase, row } from '../helpers.ts';
+
+const EAN_A = '4006381333931';
+const EAN_B = '8710103917250';
+const EAN_C = '5901234123457';
+
+async function count(sql: string, params: unknown[] = []) {
+  return (await pool.query(sql, params)).rows[0].n as number;
+}
+
+beforeEach(resetDatabase);
+afterAll(() => pool.end());
+
+describe('EAN aggregation', () => {
+  it('case A: same valid EAN from two suppliers -> one product, two independent offers', async () => {
+    const s1 = await createSupplier('alfa');
+    const s2 = await createSupplier('beta');
+    await importCsv({ supplierId: s1.id, rows: [row({ SKU: 'A-1', EAN: EAN_A, Titolo: 'Vibratore Rosa Deluxe', Prezzo: '20' })] });
+    await importCsv({ supplierId: s2.id, rows: [row({ SKU: 'B-77', EAN: EAN_A, Titolo: 'Deluxe vibe pink', Prezzo: '18.5' })] });
+    expect(await count(`SELECT count(*)::int n FROM products WHERE status = 'active'`)).toBe(1);
+    const offers = (await pool.query(`SELECT supplier_sku, price::text, product_id, link_source FROM supplier_offers ORDER BY supplier_sku`)).rows;
+    expect(offers).toHaveLength(2);
+    expect(offers[0].product_id).toBe(offers[1].product_id);
+    expect(offers.map((o) => o.price)).toEqual(['20.0000', '18.5000']);
+    const p = (await pool.query(`SELECT offer_count, supplier_count, best_unit_price::text, primary_gtin FROM products`)).rows[0];
+    expect(p).toMatchObject({ offer_count: 2, supplier_count: 2, best_unit_price: '18.5000', primary_gtin: `0${EAN_A}` });
+  });
+
+  it('case B: same SKU at two suppliers with different EANs -> no merge', async () => {
+    const s1 = await createSupplier('alfa');
+    const s2 = await createSupplier('beta');
+    await importCsv({ supplierId: s1.id, rows: [row({ SKU: 'SAME', EAN: EAN_A })] });
+    await importCsv({ supplierId: s2.id, rows: [row({ SKU: 'SAME', EAN: EAN_B })] });
+    expect(await count(`SELECT count(*)::int n FROM products WHERE status = 'active'`)).toBe(2);
+  });
+
+  it('case C: two rows without EAN stay distinct', async () => {
+    const s1 = await createSupplier('alfa');
+    await importCsv({ supplierId: s1.id, rows: [row({ SKU: 'N1', EAN: '' }), row({ SKU: 'N2', EAN: '' })] });
+    expect(await count(`SELECT count(*)::int n FROM products WHERE status = 'active'`)).toBe(2);
+    expect(await count(`SELECT count(*)::int n FROM supplier_offers WHERE link_source = 'standalone' AND barcode_status = 'missing'`)).toBe(2);
+  });
+
+  it('keeps invalid EAN as original string and never aggregates on it', async () => {
+    const s1 = await createSupplier('alfa');
+    const s2 = await createSupplier('beta');
+    await importCsv({ supplierId: s1.id, rows: [row({ SKU: 'I1', EAN: '4006381333932' })] });
+    await importCsv({ supplierId: s2.id, rows: [row({ SKU: 'I2', EAN: '4006381333932' })] });
+    expect(await count(`SELECT count(*)::int n FROM products WHERE status = 'active'`)).toBe(2);
+    const o = (await pool.query(`SELECT barcode_raw, barcode_status, barcode_issue, gtin FROM supplier_offers LIMIT 1`)).rows[0];
+    expect(o).toEqual({ barcode_raw: '4006381333932', barcode_status: 'invalid', barcode_issue: 'bad_check_digit', gtin: null });
+  });
+
+  it('holds a same-EAN offer with conflicting brand/variant in review instead of merging', async () => {
+    const s1 = await createSupplier('alfa');
+    const s2 = await createSupplier('beta');
+    await importCsv({ supplierId: s1.id, rows: [row({ SKU: 'A', EAN: EAN_A, Marca: 'LELO', Colore: 'Rosa' })] });
+    const run = await importCsv({ supplierId: s2.id, rows: [row({ SKU: 'B', EAN: EAN_A, Marca: 'Lelo Inc.', Colore: 'Nero' })] });
+    expect(run.counters.conflicts_opened).toBe(1);
+    const held = (await pool.query(`SELECT link_source, product_id FROM supplier_offers WHERE supplier_sku = 'B'`)).rows[0];
+    expect(held.link_source).toBe('conflict_hold');
+    const review = (await pool.query(`SELECT kind, status, product_id, reasons FROM match_reviews`)).rows[0];
+    expect(review).toMatchObject({ kind: 'gtin_conflict', status: 'open', product_id: held.product_id });
+    expect(review.reasons[0].field).toBe('color');
+    // The original product keeps its data untouched.
+    const original = (await pool.query(`SELECT p.attributes FROM products p JOIN product_identifiers i ON i.product_id = p.id`)).rows[0];
+    expect(original.attributes.color).toBe('Rosa');
+  });
+});
+
+describe('idempotency and updates', () => {
+  it('case E: re-importing the same data creates nothing new', async () => {
+    const s1 = await createSupplier('alfa');
+    const rows = [
+      row({ SKU: 'A', EAN: EAN_A, Immagine: 'https://img.example.com/a.jpg' }),
+      row({ SKU: 'B', EAN: '', Immagine: 'https://img.example.com/b.jpg|https://img.example.com/a.jpg' }),
+    ];
+    await importCsv({ supplierId: s1.id, rows });
+    const snapshot = async () => ({
+      products: await count(`SELECT count(*)::int n FROM products`),
+      offers: await count(`SELECT count(*)::int n FROM supplier_offers`),
+      sources: await count(`SELECT count(*)::int n FROM image_sources`),
+      jobs: await count(`SELECT count(*)::int n FROM graphile_worker._private_jobs WHERE task_id = (SELECT id FROM graphile_worker._private_tasks WHERE identifier = 'image_fetch')`),
+    });
+    const before = await snapshot();
+    expect(before).toMatchObject({ products: 2, offers: 2, sources: 2, jobs: 2 });
+    const second = await importCsv({ supplierId: s1.id, rows });
+    expect(await snapshot()).toEqual(before);
+    expect(second.counters).toMatchObject({ offers_unchanged: 2 });
+    expect(second.counters.offers_created ?? 0).toBe(0);
+    expect(second.counters.products_created ?? 0).toBe(0);
+  });
+
+  it('a corrected EAN moves the offer to the right product (no stale association)', async () => {
+    const s1 = await createSupplier('alfa');
+    const s2 = await createSupplier('beta');
+    await importCsv({ supplierId: s2.id, rows: [row({ SKU: 'REF', EAN: EAN_B })] });
+    await importCsv({ supplierId: s1.id, rows: [row({ SKU: 'X1', EAN: EAN_A })] });
+    const run = await importCsv({ supplierId: s1.id, rows: [row({ SKU: 'X1', EAN: EAN_B })] });
+    expect(run.counters.offers_relinked).toBe(1);
+    const products = (await pool.query(`SELECT p.id, p.status, p.offer_count FROM products p ORDER BY created_at`)).rows;
+    const target = (await pool.query(`SELECT product_id FROM product_identifiers WHERE value = $1`, [`0${EAN_B}`])).rows[0].product_id;
+    const offer = (await pool.query(`SELECT product_id FROM supplier_offers WHERE supplier_sku = 'X1'`)).rows[0];
+    expect(offer.product_id).toBe(target);
+    expect(products.find((p) => p.id !== target)?.offer_count).toBe(0);
+    expect(await count(`SELECT count(*)::int n FROM audit_events WHERE action = 'offer.relinked'`)).toBe(1);
+  });
+
+  it('null stock stays unknown, zero means sold out (and qualitative text is kept)', async () => {
+    const s1 = await createSupplier('alfa');
+    await importCsv({
+      supplierId: s1.id,
+      rows: [row({ SKU: 'U', Giacenza: '' }), row({ SKU: 'Z', Giacenza: '0' }), row({ SKU: 'Q', Disponibilita: 'Disponibile' })],
+    });
+    const r = Object.fromEntries((await pool.query(`SELECT supplier_sku, stock_quantity, stock_status FROM supplier_offers`)).rows.map((x) => [x.supplier_sku, x]));
+    expect(r.U).toMatchObject({ stock_quantity: null, stock_status: 'unknown' });
+    expect(r.Z).toMatchObject({ stock_quantity: 0, stock_status: 'out_of_stock' });
+    expect(r.Q).toMatchObject({ stock_quantity: null, stock_status: 'in_stock' });
+  });
+
+  it('a row with an unparsable price keeps the previous data and is reported', async () => {
+    const s1 = await createSupplier('alfa');
+    await importCsv({ supplierId: s1.id, rows: [row({ SKU: 'P', Prezzo: '10' })] });
+    const run = await importCsv({ supplierId: s1.id, rows: [row({ SKU: 'P', Prezzo: 'dieci' })] });
+    expect(run.counters.rows_error).toBe(1);
+    expect((await pool.query(`SELECT price::text FROM supplier_offers WHERE supplier_sku = 'P'`)).rows[0].price).toBe('10.0000');
+    expect(await count(`SELECT count(*)::int n FROM import_row_issues WHERE import_run_id = $1 AND severity = 'error'`, [run.id])).toBe(1);
+  });
+
+  it('reports duplicate SKUs in the same file', async () => {
+    const s1 = await createSupplier('alfa');
+    const run = await importCsv({ supplierId: s1.id, rows: [row({ SKU: 'D', Prezzo: '1' }), row({ SKU: 'D', Prezzo: '2' })] });
+    expect((await pool.query(`SELECT price::text FROM supplier_offers`)).rows[0].price).toBe('1.0000');
+    expect(await count(`SELECT count(*)::int n FROM import_row_issues WHERE import_run_id = $1 AND code = 'duplicate_sku'`, [run.id])).toBe(1);
+  });
+
+  it('ignores rows older than the stored data (out-of-order import)', async () => {
+    const s1 = await createSupplier('alfa');
+    await importCsv({ supplierId: s1.id, rows: [row({ SKU: 'O', Prezzo: '12' })], asOf: new Date('2026-09-20T10:00:00Z') });
+    const old = await importCsv({ supplierId: s1.id, rows: [row({ SKU: 'O', Prezzo: '9' })], asOf: new Date('2026-09-10T10:00:00Z') });
+    expect(old.counters.offers_skipped_outdated).toBe(1);
+    expect((await pool.query(`SELECT price::text FROM supplier_offers`)).rows[0].price).toBe('12.0000');
+  });
+});
+
+describe('snapshots', () => {
+  const three = [row({ SKU: 'S1' }), row({ SKU: 'S2' }), row({ SKU: 'S3' })];
+
+  it('a complete snapshot deactivates offers no longer listed; a delta never does', async () => {
+    const s1 = await createSupplier('alfa');
+    await importCsv({ supplierId: s1.id, rows: three, mode: 'snapshot' });
+    await importCsv({ supplierId: s1.id, rows: [row({ SKU: 'S1' }), row({ SKU: 'S2' })], mode: 'delta' });
+    expect(await count(`SELECT count(*)::int n FROM supplier_offers WHERE active`)).toBe(3);
+    const snap = await importCsv({ supplierId: s1.id, rows: [row({ SKU: 'S1' }), row({ SKU: 'S2' })], mode: 'snapshot' });
+    expect(snap.counters.offers_deactivated).toBe(1);
+    expect((await pool.query(`SELECT supplier_sku FROM supplier_offers WHERE NOT active`)).rows).toEqual([{ supplier_sku: 'S3' }]);
+    // Offer comes back in a later file -> reactivated, not duplicated.
+    await importCsv({ supplierId: s1.id, rows: [...three.slice(0, 2), row({ SKU: 'S3', Prezzo: '11' })], mode: 'delta' });
+    expect(await count(`SELECT count(*)::int n FROM supplier_offers WHERE active`)).toBe(3);
+    expect(await count(`SELECT count(*)::int n FROM supplier_offers`)).toBe(3);
+  });
+
+  it('a suspiciously small snapshot does not deactivate anything', async () => {
+    const s1 = await createSupplier('alfa');
+    await importCsv({ supplierId: s1.id, rows: three, mode: 'snapshot' });
+    const snap = await importCsv({ supplierId: s1.id, rows: [row({ SKU: 'S1' })], mode: 'snapshot' });
+    expect(snap.counters.offers_deactivated ?? 0).toBe(0);
+    expect(snap.snapshot_result).toMatch(/possibile file parziale/);
+    expect(await count(`SELECT count(*)::int n FROM supplier_offers WHERE active`)).toBe(3);
+  });
+
+  it('a failed import keeps previous data and marks the supplier as failed (case I)', async () => {
+    const s1 = await createSupplier('alfa');
+    await importCsv({ supplierId: s1.id, rows: three, mode: 'snapshot' });
+    const queued = await importCsv({ supplierId: s1.id, rows: [row({ SKU: 'S1', Prezzo: '99' })], mode: 'snapshot', run: false });
+    // Simulate an infrastructure failure while staging (file no longer readable from storage).
+    await pool.query(`UPDATE import_runs SET file_key = 'imports/missing' WHERE id = $1`, [queued.id]);
+    await expect(runImport(queued.id)).rejects.toThrow();
+    expect((await pool.query(`SELECT status, error FROM import_runs WHERE id = $1`, [queued.id])).rows[0].status).toBe('failed');
+    expect((await pool.query(`SELECT last_import_status FROM suppliers WHERE id = $1`, [s1.id])).rows[0].last_import_status).toBe('failed');
+    expect(await count(`SELECT count(*)::int n FROM supplier_offers WHERE active`)).toBe(3);
+    expect((await pool.query(`SELECT price::text FROM supplier_offers WHERE supplier_sku = 'S1'`)).rows[0].price).toBe('10.0000');
+  });
+});
+
+describe('concurrency', () => {
+  it('two suppliers importing the same new GTIN concurrently create exactly one product', async () => {
+    const suppliers = await Promise.all(['c1', 'c2', 'c3', 'c4'].map((c) => createSupplier(c)));
+    const runs = await Promise.all(
+      suppliers.map((s, i) => importCsv({ supplierId: s.id, rows: [row({ SKU: `K${i}`, EAN: EAN_C }), row({ SKU: `L${i}`, EAN: EAN_A })], run: false })),
+    );
+    await Promise.all(runs.map((r) => runImport(r.id)));
+    expect(await count(`SELECT count(*)::int n FROM product_identifiers`)).toBe(2);
+    expect(await count(`SELECT count(DISTINCT product_id)::int n FROM supplier_offers`)).toBe(2);
+    expect(await count(`SELECT count(*)::int n FROM products WHERE status = 'active'`)).toBe(2);
+  });
+
+  it('prevents two active imports for the same supplier', async () => {
+    const s1 = await createSupplier('alfa');
+    await importCsv({ supplierId: s1.id, rows: [row({ SKU: 'A' })], run: false });
+    await expect(importCsv({ supplierId: s1.id, rows: [row({ SKU: 'B' })], run: false })).rejects.toThrow(/già un import in corso/);
+  });
+});
