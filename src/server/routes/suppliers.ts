@@ -5,6 +5,44 @@ import { HttpError, requireRole, requireUser } from '../auth.ts';
 import { refreshProducts } from '../../domain/canonical.ts';
 import { invalidateFacets } from '../../search/catalog.ts';
 import { foldText } from '../../lib/text.ts';
+import { config } from '../../config.ts';
+import { describeSchedule } from '../../lib/schedule.ts';
+import {
+  feedInputSchema, FeedError, HTTP_FEED, requestFeedRun, sampleFeedForWizard, saveFeedConfig, secretFlags, testFeed, type FeedConfig,
+} from '../../imports/feed.ts';
+import { SecretsUnavailableError } from '../../lib/secrets.ts';
+
+/** Feed state for the UI: configuration without secrets, only whether each secret is set. */
+async function feedView(s: any) {
+  const cfg = s.connector_kind === HTTP_FEED ? (s.connector_config as FeedConfig) : null;
+  const lastRun = s.feed_last_run_id
+    ? (await pool.query(`SELECT id, status, error, counters, finished_at, created_at FROM import_runs WHERE id = $1`, [s.feed_last_run_id])).rows[0] ?? null
+    : null;
+  return {
+    configured: !!cfg,
+    secretsKeyConfigured: !!config.SECRETS_KEY,
+    enabled: s.feed_enabled,
+    urlDisplay: cfg?.urlDisplay ?? null,
+    authType: cfg?.authType ?? 'none',
+    headerName: cfg?.headerName ?? null,
+    secretsSet: cfg ? await secretFlags(pool, s.id) : null,
+    schedule: cfg?.schedule ?? { kind: 'daily', time: '06:00', timezone: config.FEED_DEFAULT_TIMEZONE },
+    scheduleText: cfg ? describeSchedule(cfg.schedule) : null,
+    mode: cfg?.mode ?? 'snapshot',
+    nextRunAt: s.feed_next_run_at,
+    lastCheckedAt: s.feed_last_checked_at,
+    lastStatus: s.feed_last_status,
+    lastError: s.feed_last_error,
+    consecutiveFailures: s.feed_consecutive_failures,
+    lastRun,
+  };
+}
+
+function feedErrors(err: unknown): never {
+  if (err instanceof FeedError) throw new HttpError(err.status === 502 ? 502 : err.status, err.message);
+  if (err instanceof SecretsUnavailableError) throw new HttpError(503, err.message);
+  throw err;
+}
 
 const supplierBody = z.object({
   code: z.string().regex(/^[a-z0-9][a-z0-9-]{1,40}$/, 'Codice: minuscole, numeri e trattini (2-41 caratteri)'),
@@ -27,6 +65,8 @@ function toApi(s: any) {
     defaultVatTreatment: s.default_vat_treatment, defaultVatRate: s.default_vat_rate, imageHostAllowlist: s.image_host_allowlist,
     staleAfterHours: s.stale_after_hours, connectorKind: s.connector_kind, refreshIntervalMinutes: s.refresh_interval_minutes, active: s.active,
     notes: s.notes, lastImportStatus: s.last_import_status, lastImportFinishedAt: s.last_import_finished_at, lastSuccessAsOf: s.last_success_as_of,
+    feedEnabled: s.feed_enabled, feedNextRunAt: s.feed_next_run_at, feedLastStatus: s.feed_last_status,
+    feedScheduleText: s.connector_kind === HTTP_FEED && s.connector_config?.schedule ? describeSchedule(s.connector_config.schedule) : null,
     stats: s.stats ?? undefined,
   };
 }
@@ -55,7 +95,7 @@ export async function supplierRoutes(app: FastifyInstance) {
     const s = (await pool.query('SELECT * FROM suppliers WHERE id = $1', [id])).rows[0];
     if (!s) throw new HttpError(404, 'Fornitore non trovato');
     const profile = (await pool.query(`SELECT * FROM import_profiles WHERE supplier_id = $1 ORDER BY name`, [id])).rows;
-    return { supplier: toApi(s), profiles: profile };
+    return { supplier: toApi(s), profiles: profile, feed: await feedView(s) };
   });
 
   app.post('/suppliers', async (request) => {
@@ -107,6 +147,50 @@ export async function supplierRoutes(app: FastifyInstance) {
     });
     invalidateFacets();
     return { supplier: toApi(s) };
+  });
+
+  // ---- scheduled feed (admin): secrets are write-only and never returned
+  app.put('/suppliers/:id/feed', async (request) => {
+    const user = requireRole(request, 'admin');
+    const { id } = z.object({ id: z.guid() }).parse(request.params);
+    const body = feedInputSchema.parse(request.body);
+    try {
+      await saveFeedConfig(id, body, { kind: 'user', userId: user.id });
+    } catch (err) {
+      feedErrors(err);
+    }
+    const s = (await pool.query('SELECT * FROM suppliers WHERE id = $1', [id])).rows[0];
+    return { feed: await feedView(s) };
+  });
+
+  app.post('/suppliers/:id/feed/test', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request) => {
+    requireRole(request, 'admin');
+    const { id } = z.object({ id: z.guid() }).parse(request.params);
+    try {
+      return await testFeed(id);
+    } catch (err) {
+      feedErrors(err);
+    }
+  });
+
+  app.post('/suppliers/:id/feed/sample', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request) => {
+    const user = requireRole(request, 'admin');
+    const { id } = z.object({ id: z.guid() }).parse(request.params);
+    try {
+      return await sampleFeedForWizard(id, user.id);
+    } catch (err) {
+      feedErrors(err);
+    }
+  });
+
+  app.post('/suppliers/:id/feed/run', async (request) => {
+    requireRole(request, 'admin');
+    const { id } = z.object({ id: z.guid() }).parse(request.params);
+    const s = (await pool.query('SELECT connector_kind FROM suppliers WHERE id = $1', [id])).rows[0];
+    if (!s) throw new HttpError(404, 'Fornitore non trovato');
+    if (s.connector_kind !== HTTP_FEED) throw new HttpError(400, 'Feed non configurato');
+    await requestFeedRun(id);
+    return { ok: true };
   });
 
   // ---- normalised categories and per-supplier mapping of raw categories

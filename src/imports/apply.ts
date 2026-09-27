@@ -9,6 +9,7 @@ import { detectIdentityConflicts, type IdentityConflict, type IdentityData } fro
 import { refreshProducts } from '../domain/canonical.ts';
 import { recordAudit } from '../domain/audit.ts';
 import { enqueueImageFetch } from '../jobs/queue.ts';
+import { countByType, diffOffer, insertChanges, type ChangeRecord, type OfferCommercialState } from '../domain/changes.ts';
 
 export interface ApplyContext {
   runId: string;
@@ -17,6 +18,8 @@ export interface ApplyContext {
   mapping: ColumnMapping;
   defaults: ImportDefaults;
   decimalSeparator: '.' | ',';
+  /** Record "new offer" changes: false on a supplier's first import (everything would be new). */
+  recordNewOffers?: boolean;
 }
 
 export type Counters = Record<string, number>;
@@ -37,7 +40,23 @@ interface ExistingOffer {
   source_as_of: Date;
   last_import_id: string | null;
   last_row_number: number | null;
+  price: string | null;
+  currency: string | null;
+  vat_treatment: string;
+  units_per_pack: number | null;
+  stock_quantity: number | null;
+  stock_status: OfferCommercialState['stockStatus'];
+  image_urls: string[];
 }
+
+const commercial = (o: ExistingOffer): OfferCommercialState => ({
+  price: o.price, currency: o.currency, vatTreatment: o.vat_treatment, unitsPerPack: o.units_per_pack,
+  stockQuantity: o.stock_quantity, stockStatus: o.stock_status, imageUrls: o.image_urls ?? [], gtin: o.gtin,
+});
+const commercialOf = (o: NormalizedOffer): OfferCommercialState => ({
+  price: o.price, currency: o.currency, vatTreatment: o.vatTreatment, unitsPerPack: o.unitsPerPack,
+  stockQuantity: o.stockQuantity, stockStatus: o.stockStatus, imageUrls: o.imageUrls, gtin: o.barcode.gtin14,
+});
 
 const inc = (c: Counters, k: string, n = 1) => {
   c[k] = (c[k] ?? 0) + n;
@@ -58,7 +77,8 @@ export async function applyBatch(tx: Tx, ctx: ApplyContext, rows: ParsedRow[]): 
   const existing = new Map<string, ExistingOffer>(
     (
       await tx.query(
-        `SELECT id, supplier_sku, product_id, link_source, gtin, active, row_hash, source_as_of, last_import_id, last_row_number
+        `SELECT id, supplier_sku, product_id, link_source, gtin, active, row_hash, source_as_of, last_import_id, last_row_number,
+                price::text AS price, currency, vat_treatment, units_per_pack, stock_quantity, stock_status, image_urls
            FROM supplier_offers WHERE supplier_id = $1 AND supplier_sku = ANY($2::text[]) ORDER BY id FOR UPDATE`,
         [ctx.supplierId, skus],
       )
@@ -73,6 +93,8 @@ export async function applyBatch(tx: Tx, ctx: ApplyContext, rows: ParsedRow[]): 
   const identityCache = new Map<string, IdentityData>();
   const categoryMap = await loadCategoryMap(tx, ctx.supplierId);
   const seenOnly: Array<{ id: string; rowNumber: number; confirm: boolean }> = [];
+  const changes: ChangeRecord[] = [];
+  const compareImages = !!ctx.mapping.fields.image_urls?.length;
   const markSeen = (ex: ExistingOffer, rowNumber: number, confirm: boolean) => {
     seenOnly.push({ id: ex.id, rowNumber, confirm });
     ex.last_import_id = ctx.runId; // later duplicates of this SKU in the same run are detected
@@ -172,7 +194,9 @@ export async function applyBatch(tx: Tx, ctx: ApplyContext, rows: ParsedRow[]): 
       offerId = ex.id;
       inc(counters, 'offers_updated');
       touched.add(ex.product_id);
+      changes.push(...diffOffer(ex.id, productId, commercial(ex), commercialOf(offer), { compareImages }));
       if (!ex.active) {
+        changes.push({ offerId: ex.id, productId, type: 'reactivated', oldValue: null, newValue: { price: offer.price, currency: offer.currency, stockStatus: offer.stockStatus }, pct: null });
         inc(counters, 'offers_reactivated');
         await recordAudit(tx, {
           actor: { kind: 'import' }, action: 'offer.reactivated', entityType: 'offer', entityId: ex.id,
@@ -206,11 +230,20 @@ export async function applyBatch(tx: Tx, ctx: ApplyContext, rows: ParsedRow[]): 
       );
       offerId = res.rows[0].id;
       inc(counters, 'offers_created');
+      if (ctx.recordNewOffers) {
+        changes.push({
+          offerId, productId, type: 'new_offer', oldValue: null,
+          newValue: { price: offer.price, currency: offer.currency, unitsPerPack: offer.unitsPerPack, stockStatus: offer.stockStatus, stockQuantity: offer.stockQuantity },
+          pct: null,
+        });
+      }
     }
     touched.add(productId);
     existing.set(offer.sku, {
       id: offerId, product_id: productId, link_source: linkSource, gtin: newGtin, active: true, row_hash: rowHash,
       source_as_of: ctx.asOf, last_import_id: ctx.runId, last_row_number: n.rowNumber,
+      price: offer.price, currency: offer.currency, vat_treatment: offer.vatTreatment, units_per_pack: offer.unitsPerPack,
+      stock_quantity: offer.stockQuantity, stock_status: offer.stockStatus, image_urls: offer.imageUrls,
     });
 
     if (conflicts.length && conflictCandidate) {
@@ -252,6 +285,10 @@ export async function applyBatch(tx: Tx, ctx: ApplyContext, rows: ParsedRow[]): 
     );
   }
 
+  if (changes.length) {
+    await insertChanges(tx, ctx.runId, ctx.supplierId, changes);
+    for (const [k, v] of Object.entries(countByType(changes))) inc(counters, k, v);
+  }
   await refreshProducts(tx, touched);
   return { counters, issues, touchedProducts: touched };
 }

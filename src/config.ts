@@ -44,6 +44,11 @@ const schema = z.object({
   UPLOAD_MAX_IMAGE_BYTES: z.coerce.number().int().positive().default(15 * 1024 * 1024),
   IMAGE_MAX_PIXELS: z.coerce.number().int().positive().default(40_000_000),
   PHOTO_SEARCH_RETENTION_HOURS: z.coerce.number().int().positive().default(72),
+  // Supplier feeds: 32-byte base64 key encrypting feed URLs/credentials (openssl rand -base64 32).
+  SECRETS_KEY: z.string().optional(),
+  FEED_TIMEOUT_MS: z.coerce.number().int().positive().default(180_000),
+  FEED_DEFAULT_TIMEZONE: z.string().default('Europe/Rome'),
+  CHANGE_HISTORY_DAYS: z.coerce.number().int().positive().default(365),
   IMPORT_MAX_ROWS: z.coerce.number().int().positive().default(250_000),
 
   METRICS_TOKEN: z.string().optional(),

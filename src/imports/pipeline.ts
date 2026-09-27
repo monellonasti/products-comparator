@@ -12,6 +12,7 @@ import type { ColumnMapping, ImportDefaults, ParseOptions } from './fields.ts';
 import { refreshProducts } from '../domain/canonical.ts';
 import { recordAudit } from '../domain/audit.ts';
 import { enqueue } from '../jobs/queue.ts';
+import { insertChanges } from '../domain/changes.ts';
 
 export const BATCH_SIZE = 500;
 const STAGE_CHUNK = 1000;
@@ -120,6 +121,7 @@ async function applyAll(runId: string, log: Logger) {
         mapping: run.mapping,
         defaults,
         decimalSeparator: (run.parse_options as ParseOptions).decimalSeparator ?? '.',
+        recordNewOffers: (run.counters.active_before ?? 0) > 0,
       }, rows);
       await insertIssues(tx, runId, result.issues);
       const merged = mergeCounters(run.counters, result.counters);
@@ -178,12 +180,20 @@ async function finalize(runId: string, log: Logger) {
           await tx.query(
             `UPDATE supplier_offers SET active = false, deactivated_at = now(), deactivated_reason = 'assente_dallo_snapshot', updated_at = now()
               WHERE supplier_id = $1 AND active AND last_import_id IS DISTINCT FROM $2
-              RETURNING id, product_id`,
+              RETURNING id, product_id, price::text AS price, currency, stock_status, stock_quantity`,
             [run.supplier_id, runId],
           )
         ).rows;
         counters.offers_deactivated = deactivated.length;
         if (deactivated.length) {
+          await insertChanges(
+            tx, runId, run.supplier_id,
+            deactivated.map((d) => ({
+              offerId: d.id, productId: d.product_id, type: 'removed' as const, newValue: null, pct: null,
+              oldValue: { price: d.price, currency: d.currency, stockStatus: d.stock_status, stockQuantity: d.stock_quantity },
+            })),
+          );
+          counters.changes_removed = deactivated.length;
           await recordAudit(tx, {
             actor: { kind: 'import' }, action: 'import.snapshot_deactivation', entityType: 'import_run', entityId: runId,
             data: { offerIds: deactivated.map((d) => d.id) },

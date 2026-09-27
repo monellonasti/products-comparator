@@ -147,6 +147,7 @@ export interface ProductDetail {
   images: { pending: number; failed: number; activeModel: string | null };
   reviews: Array<{ id: string; kind: string; reasons: any[]; other_title: string; other_id: string }>;
   history: Array<{ id: number; at: string; action: string; reason: string | null; data: any; actor_kind: string; actor_name: string | null; reverted_by_event_id: number | null; reverts_event_id: number | null }>;
+  recentChanges: OfferChange[];
 }
 
 export interface Supplier {
@@ -167,6 +168,10 @@ export interface Supplier {
   lastImportStatus: 'succeeded' | 'failed' | null;
   lastImportFinishedAt: string | null;
   lastSuccessAsOf: string | null;
+  feedEnabled?: boolean;
+  feedNextRunAt?: string | null;
+  feedLastStatus?: string | null;
+  feedScheduleText?: string | null;
   stats?: { activeOffers: number; inactiveOffers: number; imagesPending: number; imagesFailed: number; unmappedCategories: number };
 }
 
@@ -191,6 +196,7 @@ export interface ImportRun {
   finishedAt: string | null;
   heartbeatAt: string | null;
   createdBy: string | null;
+  sourceKind?: 'upload' | 'feed';
   mapping: any;
   defaults: any;
   parseOptions: any;
@@ -215,4 +221,43 @@ export interface TargetField {
   required: boolean;
   help?: string;
   multi?: boolean;
+}
+
+export type ChangeType = 'price' | 'availability' | 'stock' | 'images' | 'new_offer' | 'removed' | 'reactivated' | 'barcode';
+
+export interface OfferChange {
+  id: number;
+  at: string;
+  type: ChangeType;
+  typeLabel: string;
+  oldValue: any;
+  newValue: any;
+  pct: string | null;
+  importRunId: string | null;
+  source: 'upload' | 'feed' | null;
+  supplier: { id: string; name: string };
+  sku: string;
+  offerTitle: string | null;
+  product: { id: string; title: string; imageId: string | null; gtin: string | null } | null;
+}
+
+export type FeedSchedule = { kind: 'daily'; time: string; timezone: string } | { kind: 'hourly'; everyHours: number };
+
+export interface FeedView {
+  configured: boolean;
+  secretsKeyConfigured: boolean;
+  enabled: boolean;
+  urlDisplay: string | null;
+  authType: 'none' | 'basic' | 'bearer' | 'header';
+  headerName: string | null;
+  secretsSet: { url: boolean; username: boolean; password: boolean; token: boolean; header_value: boolean } | null;
+  schedule: FeedSchedule;
+  scheduleText: string | null;
+  mode: 'snapshot' | 'delta';
+  nextRunAt: string | null;
+  lastCheckedAt: string | null;
+  lastStatus: 'queued' | 'failed' | 'postponed' | 'no_mapping' | null;
+  lastError: string | null;
+  consecutiveFailures: number;
+  lastRun: { id: string; status: string; error: string | null; counters: Record<string, number>; finished_at: string | null; created_at: string } | null;
 }

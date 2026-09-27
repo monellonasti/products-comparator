@@ -2,7 +2,7 @@
 
 Web app interna per gli acquisti: raccoglie i listini dei fornitori abituali in un **catalogo visivo unificato**. Le offerte con lo stesso EAN valido finiscono in un'unica scheda, mentre le offerte dei singoli fornitori restano distinte. La funzione centrale è la **ricerca con una foto**, caricata o scattata: trova il prodotto oppure alternative simili, e da lì si confrontano prezzi netti, confezioni, MOQ e disponibilità fino alla pagina del fornitore.
 
-> **Stato**: V1 funzionante in locale, verificata con test automatici, un test end-to-end e benchmark **su dati sintetici**. **Non è production-ready**: mancano la calibrazione della ricerca visiva su foto reali, una prova di deploy e una prova di ripristino. Dettagli in [docs/PROGRESS.md](docs/PROGRESS.md).
+> **Stato** (aggiornato al 2026-09-27): V1 funzionante in locale, con feed automatici e report delle variazioni, verificata con test automatici, un test end-to-end e benchmark **su dati sintetici**. **Non è production-ready**: mancano la calibrazione della ricerca visiva su foto reali, una prova di deploy e una prova di ripristino. Dettagli in [docs/PROGRESS.md](docs/PROGRESS.md).
 
 ## Cosa fa
 
@@ -10,6 +10,8 @@ Web app interna per gli acquisti: raccoglie i listini dei fornitori abituali in 
 - **Ricerca per foto**: trascina, incolla, scegli un file o scatta; ritaglio facoltativo; risultati in tre gruppi (confermati da barcode, possibili, simili) con l'immagine che ha generato il match, astensione quando nessun risultato è affidabile, nuovo ritaglio, feedback.
 - **Ricerca testuale, EAN e SKU** (tollera i refusi; UPC-A ed EAN-13 equivalenti); **lettura barcode** live (BarcodeDetector o zxing-wasm locale) e inserimento manuale sempre disponibile.
 - **Scheda prodotto**: galleria, dati canonici con fornitore di provenienza, EAN e loro origine, offerte in tabella (su mobile come schede) con prezzo di listino, trattamento IVA, netto per pezzo, confezione, MOQ, scaglioni, stock, tempi, aggiornamento e link.
+- **Feed automatici**: per ogni fornitore si può impostare l'indirizzo del listino (CSV/XLSX, anche con utente/password o token, salvati cifrati) da scaricare **una volta al giorno** a un orario scelto (o ogni N ore); il file viene importato con la mappatura salvata.
+- **Report delle variazioni**: a ogni aggiornamento (feed o manuale) si registra cosa è cambiato: **prezzi** (con %), **disponibilità e quantità**, **immagini** aggiunte o tolte, offerte nuove, uscite o tornate a listino, EAN corretti. Si consulta in Importazioni › Variazioni (filtri, CSV), nel dettaglio import e nella scheda prodotto.
 - **Fornitori e import CSV/XLSX**: wizard con lettura, mappatura salvabile, anteprima validata, snapshot/delta, stato e avanzamento, errori per riga (anche in CSV), ripresa dal checkpoint, immagini scaricate e indicizzate in background.
 - **Corrispondenze da verificare**: conflitti EAN e possibili doppioni; unione, separazione, override e relativo annullamento, tutto tracciato.
 - **Ruoli** amministratore e operatore, applicati lato server su ogni risorsa.
@@ -57,15 +59,17 @@ pnpm demo:seed
 pnpm demo:images
 pnpm worker
 ```
-`demo:fixtures` genera 3 listini (CSV cp1252 con `;`, XLSX, CSV UTF-8), le immagini e 19 foto di prova in `fixtures/demo/`. `demo:seed` crea fornitori, categorie, utenti `admin@demo.local` e `operatore@demo.local` (password da `DEMO_ADMIN_PASSWORD` / `DEMO_OPERATOR_PASSWORD`, altrimenti generate e stampate una sola volta) ed esegue gli import. `demo:images` serve le immagini su 127.0.0.1:4010, ammesso solo in sviluppo tramite `IMAGE_FETCH_DEV_ALLOW`. Marche, prodotti ed EAN demo sono **fittizi**.
+`demo:fixtures` genera 3 listini (CSV cp1252 con `;`, XLSX, CSV UTF-8), le immagini e 19 foto di prova in `fixtures/demo/`. `demo:seed` crea fornitori, categorie, utenti `admin@demo.local` e `operatore@demo.local` (password da `DEMO_ADMIN_PASSWORD` / `DEMO_OPERATOR_PASSWORD`, altrimenti generate e stampate una sola volta) ed esegue gli import. `demo:images` serve le immagini (e il listino demo del "giorno 2" in `/feeds/`) su 127.0.0.1:4010, ammesso solo in sviluppo tramite `IMAGE_FETCH_DEV_ALLOW`. Marche, prodotti ed EAN demo sono **fittizi**.
+
+Per provare il feed e il report delle variazioni: nella pagina del fornitore *Alfa Distribuzione (demo)* impostare l'indirizzo `http://127.0.0.1:4010/feeds/alfa-listino-giorno2.csv`, salvare e premere **Aggiorna ora**. Il listino del giorno 2 ha prezzi cambiati, un prodotto esaurito, una quantità diversa, un'immagine in più, un prodotto uscito e uno nuovo. Richiede `SECRETS_KEY` nel `.env`.
 
 ## Test e benchmark
 
 | Comando | Cosa verifica | Esito al 2026-09-25 |
 |---|---|---|
 | `pnpm typecheck` | TypeScript server + web | pulito |
-| `pnpm test:unit` | GTIN, prezzi, stock, parser, SSRF, barcode, template | 49/49 |
-| `pnpm test` | unit + integrazione su Postgres reale (`TEST_DATABASE_URL`, **viene svuotato**) | 85/85 |
+| `pnpm test:unit` | GTIN, prezzi, stock, parser, SSRF, barcode, template, pianificazione feed, cifratura, variazioni | 62/62 |
+| `pnpm test` | unit + integrazione su Postgres reale (`TEST_DATABASE_URL`, **viene svuotato**), feed inclusi | 105/105 |
 | `pnpm test:e2e` | flusso completo con HTTP, S3, download e modello reali | 6/6 |
 | `pnpm bench:visual -- --set fixtures/demo/queries.json [--crop]` | Recall@1/@5, falsi match, astensione, soglie suggerite | sintetico: R@5 92,9% a foto intera, 100% con ritaglio |
 | `pnpm bench:load -- --products 60000 --users 5` | latenza API e ricerca foto su 60.000 vettori (DB `comparator_bench` separato) | API p95 150 ms; foto p95 4,8 s lato server con 5 utenti |

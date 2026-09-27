@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '../api';
 import { useAuth } from '../auth';
@@ -35,12 +35,14 @@ export default function ImportWizardPage() {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  // Coming from "Configura mappatura dal feed": the file is already downloaded and inspected.
+  const fromFeed = (useLocation().state as { inspect?: Inspect } | null)?.inspect ?? null;
   const suppliers = useQuery({ queryKey: ['suppliers'], queryFn: () => api.get<{ items: Supplier[] }>('/api/suppliers') });
   const fields = useQuery({ queryKey: ['import-fields'], queryFn: () => api.get<{ fields: TargetField[] }>('/api/imports/fields') });
-  const [step, setStep] = useState(0);
-  const [supplierId, setSupplierId] = useState(params.get('supplier') ?? '');
+  const [step, setStep] = useState(fromFeed ? 1 : 0);
+  const [supplierId, setSupplierId] = useState(fromFeed?.run.supplierId ?? params.get('supplier') ?? '');
   const [file, setFile] = useState<File | null>(null);
-  const [inspect, setInspect] = useState<Inspect | null>(null);
+  const [inspect, setInspect] = useState<Inspect | null>(fromFeed);
   const [opts, setOpts] = useState<Record<string, any>>({});
   const [mapping, setMapping] = useState<ColumnMapping>({ fields: {} });
   const [defaults, setDefaults] = useState<ImportDefaults>({ currency: 'EUR', vatTreatment: 'unknown', vatRate: null, unitsPerPack: 1, salesUnit: null });

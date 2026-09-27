@@ -1,0 +1,31 @@
+Codice Articolo;EAN;Descrizione;Marca;Categoria;Colore;Contenuto;Prezzo netto;Pz/conf;Giacenza;Immagine 1;Immagine 2;Link prodotto
+ALF-1000;8009900000013;Gel Idratante Lumen Care Blu 50 ml;Lumen Care;Lubrificanti > Lumen Care;Blu;50 ml;18,28;1;0;http://127.0.0.1:4010/alfa-p001.jpg;;https://alfa.example.com/p/ALF-1000
+ALF-1001;8009900000020;Gel Idratante Lumen Care Blu 100 ml;Lumen Care;Lubrificanti > Lumen Care;Blu;100 ml;23,07;1;68;http://127.0.0.1:4010/alfa-p001.jpg;;https://alfa.example.com/p/ALF-1001
+ALF-1002;8009900000037;Lubrificante Acqua Sensa Oro 50 ml;Sensa;Lubrificanti > Sensa;Oro;50 ml;30,07;1;0;http://127.0.0.1:4010/alfa-p002.jpg;;https://alfa.example.com/p/ALF-1002
+ALF-1004;8009900000068;Silk Gel Moira Fucsia 100 ml;Moira;Lubrificanti > Moira;Fucsia;100 ml;33,05;1;104;http://127.0.0.1:4010/alfa-p003.jpg;;https://alfa.example.com/p/ALF-1004
+ALF-1005;8009900000075;Olio Massaggio Moira Nero 50 ml;Moira;Lubrificanti > Moira;Nero;50 ml;13,68;1;55;http://127.0.0.1:4010/alfa-p004.jpg;http://127.0.0.1:4010/beta-p004.jpg;https://alfa.example.com/p/ALF-1005
+ALF-1006;8009900000082;Olio Massaggio Moira Nero 100 ml;Moira;Lubrificanti > Moira;Nero;100 ml;26,04;1;13;http://127.0.0.1:4010/alfa-p004.jpg;;https://alfa.example.com/p/ALF-1006
+ALF-1007;8009900000099;Crema Stimolante Moira Rosa cipria 30 ml;Moira;Cosmetici > Moira;Rosa cipria;30 ml;29,43;1;0;http://127.0.0.1:4010/alfa-p005.jpg;;https://alfa.example.com/p/ALF-1007
+ALF-1008;8009900000112;Gel Calore Lumen Care Rosa cipria 30 ml;Lumen Care;Cosmetici > Lumen Care;Rosa cipria;30 ml;28,79;1;116;http://127.0.0.1:4010/alfa-p007.jpg;;https://alfa.example.com/p/ALF-1008
+ALF-1009;8009900000129;Ultra Sottili Nuvia Rosa cipria 6 pz;Nuvia;Preservativi > Nuvia;;;30,04;1;17;http://127.0.0.1:4010/alfa-p008.jpg;;https://alfa.example.com/p/ALF-1009
+ALF-1010;8009900000136;Classic Moira Fucsia 6 pz;Moira;Preservativi > Moira;;;31,82;1;96;http://127.0.0.1:4010/alfa-p009.jpg;;https://alfa.example.com/p/ALF-1010
+ALF-1011;8009900000143;Extra Large Nuvia 6 pz;Nuvia;Preservativi > Nuvia;;;7,35;1;;http://127.0.0.1:4010/alfa-p010.jpg;;https://alfa.example.com/p/ALF-1011
+ALF-1012;8009900000167;Wave Sensa Viola Standard;Sensa;Vibratori > Sensa;Viola;;13,67;1;10;http://127.0.0.1:4010/alfa-p012.jpg;;https://alfa.example.com/p/ALF-1012
+ALF-1013;8009900000174;Wave Sensa Nero Standard;Sensa;Vibratori > Sensa;Nero;;5,79;1;96;http://127.0.0.1:4010/alfa-p013.jpg;;https://alfa.example.com/p/ALF-1013
+ALF-1014;8009900000181;Orbit Moira Oro Standard;Moira;Vibratori > Moira;Oro;;34,72;1;0;http://127.0.0.1:4010/alfa-p014.jpg;;https://alfa.example.com/p/ALF-1014
+ALF-1015;8009900000198;Orbit Moira Fucsia Standard;Moira;Vibratori > Moira;Fucsia;;19,92;1;106;http://127.0.0.1:4010/alfa-p015.jpg;;https://alfa.example.com/p/ALF-1015
+ALF-1016;8009900000211;Petal Aurum Viola Standard;Aurum;Vibratori > Aurum;Viola;;9,28;1;99;http://127.0.0.1:4010/alfa-p017.jpg;;https://alfa.example.com/p/ALF-1016
+ALF-1017;8009900000228;Curve Lumen Care Verde Standard;Lumen Care;Vibratori > Lumen Care;Verde;;37,85;1;101;http://127.0.0.1:4010/alfa-p018.jpg;;https://alfa.example.com/p/ALF-1017
+ALF-1018;8009900000235;Curve Lumen Care Oro Standard;Lumen Care;Vibratori > Lumen Care;Oro;;4,13;1;86;http://127.0.0.1:4010/alfa-p019.jpg;;https://alfa.example.com/p/ALF-1018
+ALF-1019;8009900000242;Slim Classic Aurum Fucsia Standard;Aurum;Vibratori > Aurum;Fucsia;;16,15;1;96;http://127.0.0.1:4010/alfa-p020.jpg;;https://alfa.example.com/p/ALF-1019
+ALF-1020;8009900000266;Bullet Aurum Rosa cipria Standard;Aurum;Vibratori > Aurum;Rosa cipria;;12,34;1;29;http://127.0.0.1:4010/alfa-p022.jpg;;https://alfa.example.com/p/ALF-1020
+ALF-1021;8009900000273;Bullet Aurum Oro Standard;Aurum;Vibratori > Aurum;Oro;;35,43;1;0;http://127.0.0.1:4010/alfa-p023.jpg;;https://alfa.example.com/p/ALF-1021
+ALF-1022;8009900000280;Wand Mini Lumen Care Fucsia Standard;Lumen Care;Vibratori > Lumen Care;Fucsia;;13,37;1;;http://127.0.0.1:4010/alfa-p024.jpg;;https://alfa.example.com/p/ALF-1022
+ALF-1023;8009900000297;Wand Mini Lumen Care Viola Standard;Lumen Care;Vibratori > Lumen Care;Viola;;23,43;1;91;http://127.0.0.1:4010/alfa-p025.jpg;;https://alfa.example.com/p/ALF-1023
+ALF-1024;8009900000310;Scrub Sensuale Moira Verde 200 ml;Moira;Cosmetici > Moira;Verde;200 ml;19,72;1;70;http://127.0.0.1:4010/alfa-p027.jpg;;https://alfa.example.com/p/ALF-1024
+ALF-1025;8009900000327;Anello Flex Sensa Verde Standard;Sensa;Accessori > Sensa;Verde;;26,95;1;20;http://127.0.0.1:4010/alfa-p028.jpg;;https://alfa.example.com/p/ALF-1025
+ALF-1026;8009900000334;Anello Duo Velvora Blu Standard;Velvora;Accessori > Velvora;Blu;;13,25;1;99;http://127.0.0.1:4010/alfa-p029.jpg;;https://alfa.example.com/p/ALF-1026
+ALF-9001;;Kit Regalo Coppia Deluxe;Aurum;Kit > Aurum;Blu;50 ml;16,62;1;0;;;https://alfa.example.com/p/ALF-1000
+ALF-9002;;Kit Regalo Coppia Classic;Aurum;Kit > Aurum;Blu;50 ml;16,62;1;0;;;https://alfa.example.com/p/ALF-1000
+ALF-9003;8009900000021;Candela Massaggio Vaniglia;Moira;Lubrificanti > Lumen Care;Blu;100 ml;25,08;1;68;http://127.0.0.1:4010/alfa-p001.jpg;;https://alfa.example.com/p/ALF-1001
+ALF-2001;;Gel Rinfrescante Menta 75 ml;Nuvia;Cosmetici > Nuvia;;75 ml;7,40;1;40;;;https://alfa.example.com/p/ALF-2001

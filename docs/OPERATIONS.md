@@ -21,6 +21,7 @@ Aggiornamenti: `git pull`, poi `docker compose … up -d --build`. Le migrazioni
 | PostgreSQL (dati, audit, code, vettori) | `docker compose exec -T postgres pg_dump -U comparator -Fc comparator > backup/comparator-$(date +%F).dump` | ogni notte più prima di ogni aggiornamento; conservazione 14-30 giorni, copia fuori sede |
 | Object storage (immagini, file di import) | versioning e lifecycle del provider, oppure `rclone sync s3:bucket backup:bucket` | ogni notte |
 | Configurazione | `deploy/.env.production` in un password manager o secret store aziendale | a ogni modifica |
+| **`SECRETS_KEY`** | insieme ai backup del DB, nel password manager: senza la chiave le credenziali dei feed salvate non sono leggibili e vanno reinserite | a ogni rotazione |
 
 Ripristino (provato in V1 solo come comandi, **non esercitato**):
 ```bash
@@ -36,7 +37,8 @@ Le immagini sono content-addressed: dopo il ripristino di DB e bucket basta veri
 
 - **Log** JSON su stdout (pino), con redazione di cookie e header Authorization. Mai segreti o contenuti dei file.
 - **`GET /metrics`** (formato Prometheus) solo con `Authorization: Bearer $METRICS_TOKEN`, bloccato su Caddy (da interrogare dalla rete interna). Espone latenze HTTP per route (p50/p95/p99), `photo_search_server_ms`, errori di ricerca e di lettura barcode, `http_5xx_total`, profondità della coda e job con errori, download falliti e pendenti, copertura dell'indice (immagini, indicizzate, fallite), offerte obsolete, import falliti negli ultimi 7 giorni.
-- **Allarmi suggeriti**: `/readyz` diverso da 200; import falliti > 0; `image_download_failures` in crescita; `vision_index_failed` > 0; coda con più di 1.000 job per oltre un'ora; p95 della ricerca foto > 5 s; offerte obsolete in crescita per un fornitore.
+- **Feed**: gauge `feeds_failed` (feed il cui ultimo tentativo è fallito), `feeds_overdue` (feed in ritardo di oltre 2 ore: worker fermo?), `offer_changes_24h`.
+- **Allarmi suggeriti**: `/readyz` diverso da 200; import falliti > 0; `feeds_failed` > 0 o `feeds_overdue` > 0; `image_download_failures` in crescita; `vision_index_failed` > 0; coda con più di 1.000 job per oltre un'ora; p95 della ricerca foto > 5 s; offerte obsolete in crescita per un fornitore.
 - **UI**: Impostazioni › Stato del sistema (modello, copertura, soglie, code, fallimenti e retry) e pagina Importazioni.
 
 ## Sicurezza: checklist per la messa in produzione
@@ -49,6 +51,7 @@ Le immagini sono content-addressed: dopo il ripristino di DB e bucket basta veri
 - [ ] Password di almeno 12 caratteri; account disattivati alla cessazione; revisione periodica dei ruoli.
 - [ ] Backup notturni verificati e prova di ripristino.
 - [ ] `METRICS_TOKEN` impostato e non esposto.
+- [ ] `SECRETS_KEY` generata (`openssl rand -base64 32`), diversa da sviluppo, salvata con i backup. Rotazione: impostare la nuova chiave e reinserire le credenziali dei feed.
 - [ ] Aggiornamenti di sicurezza di immagini base e dipendenze (`pnpm audit`).
 
 Rischi residui noti: la lettura XLSX avviene interamente in memoria, per cui un file compresso "bomba" di pochi MB potrebbe usare molta RAM (mitigato dal limite di 60 MB sull'upload; da considerare un limite di memoria per il container). I rate limit sono in memoria e valgono per singola istanza.

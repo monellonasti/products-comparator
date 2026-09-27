@@ -19,8 +19,9 @@ const runner = await run({
   noHandleSignals: false,
   pollInterval: 2000,
   taskList,
-  // Hourly housekeeping; `fill` is 0 so missed runs are not replayed after downtime.
-  parsedCronItems: parseCrontab('15 * * * * maintenance ?max=1'),
+  // Hourly housekeeping; feed scheduler every 5 minutes (due feeds are claimed in the DB, so a missed tick
+  // is simply caught up by the next one). Missed runs are not replayed after downtime.
+  parsedCronItems: parseCrontab(['15 * * * * maintenance ?max=1', '*/5 * * * * feeds_tick ?max=1'].join('\n')),
 });
 
 console.log(JSON.stringify({ level: 'info', msg: 'worker started', concurrency: config.WORKER_CONCURRENCY, model: config.VISION_MODEL }));

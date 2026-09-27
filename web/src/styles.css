@@ -214,3 +214,5 @@ code, .mono { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; f
   .main-nav a { padding: 8px 8px; }
   .page { padding: 12px 12px 48px; }
 }
+.tab-link { padding: 8px 12px; border-bottom: 3px solid transparent; color: var(--muted); font-weight: 500; text-decoration: none; white-space: nowrap; }
+.tab-link.active { color: var(--primary); border-bottom-color: var(--primary); }

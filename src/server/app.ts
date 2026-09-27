@@ -23,6 +23,7 @@ import { importRoutes } from './routes/imports.ts';
 import { reviewRoutes } from './routes/reviews.ts';
 import { adminRoutes } from './routes/admin.ts';
 import { healthRoutes } from './routes/health.ts';
+import { changeRoutes } from './routes/changes.ts';
 
 const WEB_DIST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../dist/web');
 
@@ -104,6 +105,7 @@ export async function buildApp(opts: { logger?: boolean } = {}): Promise<Fastify
   await app.register(importRoutes, { prefix: '/api' });
   await app.register(reviewRoutes, { prefix: '/api' });
   await app.register(adminRoutes, { prefix: '/api' });
+  await app.register(changeRoutes, { prefix: '/api' });
 
   if (existsSync(WEB_DIST)) {
     // Files are resolved at request time (a rebuilt bundle is served without restart). Hashed assets are

@@ -7,6 +7,7 @@ import type { ImportRun } from '../types';
 import { ErrorNotice, Notice, Spinner, useDocumentTitle } from '../components/ui';
 import { bytes, dateTime } from '../format';
 import { RunStatus } from './ImportsPage';
+import { ChangeCounters } from '../components/changes';
 
 const COUNTER_LABELS: Array<[string, string]> = [
   ['rows_total', 'Righe nel file'], ['rows_processed', 'Righe elaborate'], ['offers_created', 'Offerte nuove'], ['offers_updated', 'Offerte aggiornate'],
@@ -52,7 +53,7 @@ export default function ImportDetailPage() {
         <div>
           <h1>{run.fileName}</h1>
           <p>
-            <Link to={`/fornitori/${run.supplierId}`}>{run.supplierName}</Link> · <RunStatus status={run.status} /> · {run.mode === 'snapshot' ? 'listino completo' : 'aggiornamento parziale'} · dati al {dateTime(run.asOf)}
+            <Link to={`/fornitori/${run.supplierId}`}>{run.supplierName}</Link> · {run.sourceKind === 'feed' ? 'feed automatico' : 'caricamento manuale'} · <RunStatus status={run.status} /> · {run.mode === 'snapshot' ? 'listino completo' : 'aggiornamento parziale'} · dati al {dateTime(run.asOf)}
           </p>
         </div>
         {isAdmin && (
@@ -77,6 +78,18 @@ export default function ImportDetailPage() {
         </div>
       )}
       {run.snapshotResult && <Notice kind="info">{run.snapshotResult}</Notice>}
+
+      {run.status === 'succeeded' && (
+        <section className="card" style={{ marginTop: 16 }} aria-labelledby="changes-title">
+          <div className="card-title">
+            <h2 id="changes-title">Variazioni rilevate</h2>
+            <Link className="btn btn-sm" to={`/importazioni/variazioni?run=${run.id}`}>
+              Vedi dettaglio
+            </Link>
+          </div>
+          <ChangeCounters counters={c} />
+        </section>
+      )}
 
       <div className="grid-2" style={{ marginTop: 16 }}>
         <div className="card">

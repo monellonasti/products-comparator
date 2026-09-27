@@ -64,7 +64,13 @@ export interface ImportRunRow {
   [k: string]: unknown;
 }
 
-export async function createUploadRun(input: { supplierId: string; fileName: string; bytes: Buffer; userId: string | null }): Promise<InspectResult> {
+export async function createUploadRun(input: {
+  supplierId: string;
+  fileName: string;
+  bytes: Buffer;
+  userId: string | null;
+  sourceKind?: 'upload' | 'feed';
+}): Promise<InspectResult> {
   const supplier = (await pool.query('SELECT * FROM suppliers WHERE id = $1', [input.supplierId])).rows[0];
   if (!supplier) throw new ImportRequestError('Fornitore non trovato', 404);
   if (!input.bytes.length) throw new ImportRequestError('File vuoto');
@@ -88,9 +94,9 @@ export async function createUploadRun(input: { supplierId: string; fileName: str
   ).rows[0];
   const run = (
     await pool.query(
-      `INSERT INTO import_runs (id, supplier_id, profile_id, status, file_name, file_kind, file_sha256, file_size, file_key, parse_options, as_of, created_by)
-       VALUES ($1, $2, $3, 'uploaded', $4, $5, $6, $7, $8, $9::jsonb, now(), $10) RETURNING *`,
-      [runId, input.supplierId, profile?.id ?? null, input.fileName.slice(0, 250), kind, fileSha, input.bytes.length, fileKey, JSON.stringify(parseOptions), input.userId],
+      `INSERT INTO import_runs (id, supplier_id, profile_id, status, file_name, file_kind, file_sha256, file_size, file_key, parse_options, as_of, created_by, source_kind)
+       VALUES ($1, $2, $3, 'uploaded', $4, $5, $6, $7, $8, $9::jsonb, now(), $10, $11) RETURNING *`,
+      [runId, input.supplierId, profile?.id ?? null, input.fileName.slice(0, 250), kind, fileSha, input.bytes.length, fileKey, JSON.stringify(parseOptions), input.userId, input.sourceKind ?? 'upload'],
     )
   ).rows[0];
   const inspected = await inspect(run, input.bytes, parseOptions);

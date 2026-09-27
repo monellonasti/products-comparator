@@ -50,6 +50,10 @@ export function splitQuantityCell(value: unknown): { quantity: number | null; te
   return { quantity: null, text: s, negative: false };
 }
 
+export const STOCK_TEXT: Record<StockStatus, string> = {
+  in_stock: 'disponibile', low_stock: 'scarsa disponibilità', out_of_stock: 'esaurito', on_order: 'in arrivo', unknown: 'non dichiarata',
+};
+
 export function isAvailable(status: StockStatus): boolean {
   return status === 'in_stock' || status === 'low_stock';
 }

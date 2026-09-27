@@ -257,6 +257,24 @@ async function main() {
   const alfaCsv = [alfaHeaders.join(';'), ...alfaRows.map((r) => alfaHeaders.map((h) => (r as any)[h]).join(';'))].join('\r\n') + '\r\n';
   await writeFile(path.join(OUT, 'alfa-distribuzione.csv'), iconv.encode(alfaCsv, 'windows-1252'));
 
+  // "Day 2" feed of supplier Alfa (deterministic edits, no randomness): demonstrates the scheduled feed and
+  // the change report (prices up/down, sold out, quantity, added image, a product leaving, a new product).
+  const day2 = alfaRows.filter((r) => r['Codice Articolo'] !== 'ALF-1003').map((r) => ({ ...r }));
+  const edit = (sku: string, f: (r: (typeof day2)[number]) => void) => {
+    const r = day2.find((x) => x['Codice Articolo'] === sku);
+    if (r) f(r);
+  };
+  const price2 = (v: string, factor: number) => (Number(v.replace(',', '.')) * factor).toFixed(2).replace('.', ',');
+  edit('ALF-1000', (r) => (r['Prezzo netto'] = price2(r['Prezzo netto'], 1.1)));
+  edit('ALF-1001', (r) => (r['Prezzo netto'] = price2(r['Prezzo netto'], 0.92)));
+  edit('ALF-1002', (r) => (r.Giacenza = '0'));
+  edit('ALF-1004', (r) => (r.Giacenza = String(Number(r.Giacenza || 0) + 15)));
+  edit('ALF-1005', (r) => (r['Immagine 2'] = r['Immagine 1'].replace('/alfa-', '/beta-')));
+  day2.push({ ...alfaRows[0], 'Codice Articolo': 'ALF-2001', EAN: '', Descrizione: 'Gel Rinfrescante Menta 75 ml', Marca: 'Nuvia', Categoria: 'Cosmetici > Nuvia', Colore: '', Contenuto: '75 ml', 'Prezzo netto': '7,40', Giacenza: '40', 'Immagine 1': '', 'Link prodotto': 'https://alfa.example.com/p/ALF-2001' });
+  await mkdir(path.join(OUT, 'feeds'), { recursive: true });
+  const day2Csv = [alfaHeaders.join(';'), ...day2.map((r) => alfaHeaders.map((h) => (r as any)[h]).join(';'))].join('\r\n') + '\r\n';
+  await writeFile(path.join(OUT, 'feeds', 'alfa-listino-giorno2.csv'), iconv.encode(day2Csv, 'windows-1252'));
+
   // Supplier B (Beta Wholesale): XLSX, English headers, numeric prices, some packs of 5 (case F),
   // qualitative availability (case G), EAN mostly as text; two EANs stored as numbers.
   const beta = catalogue.filter((_, i) => i % 3 !== 2);

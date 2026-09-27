@@ -43,7 +43,10 @@ export async function healthRoutes(app: FastifyInstance) {
                   (SELECT count(*) FROM image_sources WHERE status = 'pending')::int AS image_download_pending,
                   (SELECT count(*) FROM supplier_offers o JOIN suppliers s ON s.id = o.supplier_id
                     WHERE o.active AND o.source_as_of < now() - make_interval(hours => s.stale_after_hours))::int AS stale_offers,
-                  (SELECT count(*) FROM import_runs WHERE status = 'failed' AND finished_at > now() - interval '7 days')::int AS failed_imports_7d`,
+                  (SELECT count(*) FROM import_runs WHERE status = 'failed' AND finished_at > now() - interval '7 days')::int AS failed_imports_7d,
+                  (SELECT count(*) FROM suppliers WHERE feed_enabled AND feed_last_status = 'failed')::int AS feeds_failed,
+                  (SELECT count(*) FROM suppliers WHERE feed_enabled AND feed_next_run_at < now() - interval '2 hours')::int AS feeds_overdue,
+                  (SELECT count(*) FROM offer_changes WHERE created_at > now() - interval '24 hours')::int AS offer_changes_24h`,
         )
       ).rows[0];
       Object.assign(gauges, q);

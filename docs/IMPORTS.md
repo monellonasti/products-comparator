@@ -64,9 +64,53 @@ Il file originale resta nello storage (`imports/<run>/<sha256>`) per la tracciab
 - Un import fermo da più di 15 minuti (heartbeat) si può riprovare dalla UI.
 - Download immagini: coda per host (`fetch:<host>:<shard>`, al massimo `IMAGE_FETCH_PER_HOST` in parallelo per host), 6 tentativi con backoff. 404/403 e i blocchi SSRF sono definitivi (`failed`/`blocked`) e si possono ritentare dalle Impostazioni.
 
+## Feed automatici (src/imports/feed.ts)
+
+Una volta configurato il fornitore, dalla sua pagina (sezione **Aggiornamento automatico**, solo amministratori) si imposta:
+
+| Impostazione | Note |
+|---|---|
+| Indirizzo del listino | URL http/https di un file CSV o XLSX. Viene salvato **cifrato**, perché spesso contiene un codice di accesso; l'interfaccia mostra solo host e percorso (`?…`). |
+| Autenticazione | nessuna, utente e password (Basic), token Bearer o header personalizzato. Le credenziali sono **in sola scrittura** (mai restituite dall'API), inviate **solo in HTTPS** e **solo all'origine configurata**: un redirect verso un altro host non le riceve. |
+| Frequenza | una volta al giorno all'orario indicato (ora italiana, cambio dell'ora legale gestito) oppure ogni N ore. |
+| Tipo di file | listino completo (snapshot, con le regole di sicurezza sopra) oppure parziale (delta). |
+
+Flusso: ogni 5 minuti il worker controlla i feed in scadenza e li "prenota" nel DB, così ognuno parte una sola volta. Poi scarica il file (downloader SSRF-safe, limite `UPLOAD_MAX_IMPORT_BYTES`, timeout `FEED_TIMEOUT_MS`) e crea un import con origine `feed`, usando la **mappatura salvata** del fornitore, con data dei dati uguale all'ora del download. Da lì in avanti è identico a un import manuale: staging, batch, snapshot, immagini, suggerimenti, report.
+
+| Situazione | Comportamento |
+|---|---|
+| Mappatura non ancora salvata | Nessun download; stato "in attesa della mappatura". Con **Configura mappatura dal feed** il file viene scaricato e aperto nel wizard: basta salvare la mappatura una volta. |
+| Import già in corso per il fornitore | Rinvio di 15 minuti. |
+| Download non riuscito (errore di rete, 4xx/5xx, file vuoto) | Dati precedenti conservati e marcati **non aggiornati** (ultimo import del fornitore = fallito). Fino a 3 nuovi tentativi, dopo 30, 60 e 90 minuti, poi l'orario normale. L'errore compare nella pagina del fornitore senza la query string dell'URL. |
+| Colonne del file cambiate | L'import fallisce con "Colonne mappate assenti nel file: …". **Prova connessione** mostra in anticipo le colonne mancanti. |
+| File identico al giorno prima | Nessuna variazione registrata; la freschezza dei dati viene confermata. |
+
+Azioni manuali: **Prova connessione** (scarica e legge le intestazioni senza importare), **Aggiorna ora** (esegue subito il feed), **Configura mappatura dal feed**.
+
+## Report delle variazioni (src/domain/changes.ts)
+
+A ogni import, da feed o manuale, per ogni offerta già esistente si registra in `offer_changes` cosa è cambiato rispetto al dato precedente:
+
+| Tipo | Quando | Valori |
+|---|---|---|
+| Prezzo | prezzo, valuta, IVA o pezzi per prezzo cambiati | prima e dopo; la **percentuale** solo se valuta, IVA e confezione sono uguali (altrimenti "non confrontabile") |
+| Disponibilità | lo stato cambia (disponibile / scarsa / esaurito / in arrivo / non dichiarata) | stato e quantità prima e dopo |
+| Quantità | stessa disponibilità, quantità diversa | quantità prima e dopo |
+| Immagini | URL di immagini aggiunti o tolti (solo se il file ha colonne immagine mappate) | elenco degli URL aggiunti e rimossi |
+| Nuova offerta | SKU mai visto (non registrato al **primo** import del fornitore, per evitare migliaia di righe inutili) | prezzo e disponibilità |
+| Uscita dal listino | offerta disattivata da uno snapshot | ultimo prezzo noto |
+| Tornata a listino | offerta disattivata che ricompare | prezzo |
+| EAN cambiato | il fornitore corregge l'EAN di uno SKU | vecchio e nuovo EAN (l'offerta viene anche spostata sul prodotto giusto) |
+
+Dove si consulta: **Importazioni › Variazioni** (filtri per periodo, fornitore, tipo, variazione minima di prezzo in %, export CSV), il riquadro **Variazioni rilevate** nel dettaglio di ogni import, la sezione **Variazioni recenti delle offerte** nella scheda prodotto (ultimi 90 giorni) e il riepilogo dell'ultimo feed nella pagina del fornitore. Lo storico viene conservato per `CHANGE_HISTORY_DAYS` giorni (default 365) e poi eliminato dal job di manutenzione.
+
+Limiti noti:
+- se un fornitore sostituisce il contenuto di un'immagine **mantenendo lo stesso URL**, la modifica non viene rilevata: si confrontano gli URL, non i byte ricaricati;
+- nessuna notifica push o email: il report si consulta nell'app. Un riepilogo via email richiederà la configurazione SMTP.
+
 ## Connettori futuri (src/imports/connectors.ts)
 
-L'interfaccia `SupplierConnector` restituisce un file (o delle righe) più `asOf` e `mode`, che passano **per la stessa pipeline** degli upload. Così le regole su identità, prezzi e snapshot restano in un solo punto. `suppliers.connector_kind`, `connector_config` (mai segreti: solo **nomi** di variabili d'ambiente) e `refresh_interval_minutes` sono già a schema. Nella V1 non esistono connettori specifici: vanno scritti solo con documentazione e accessi reali del fornitore.
+L'interfaccia `SupplierConnector` restituisce un file (o delle righe) più `asOf` e `mode`, che passano **per la stessa pipeline** degli upload. Così le regole su identità, prezzi e snapshot restano in un solo punto. `suppliers.connector_kind`, `connector_config` (mai segreti: solo **nomi** di variabili d'ambiente) e `refresh_interval_minutes` sono già a schema. Il feed HTTP generico descritto sopra è già disponibile per qualsiasi fornitore che pubblichi un CSV/XLSX a un indirizzo fisso. I connettori **specifici** (API proprietarie, SFTP, portali con login) vanno scritti solo con documentazione e accessi reali del fornitore; le loro credenziali vanno cifrate in `supplier_secrets` come quelle dei feed.
 
 Dati necessari per collegare un fornitore reale:
 1. un listino completo reale (CSV/XLSX) e uno parziale, se il fornitore invia aggiornamenti;

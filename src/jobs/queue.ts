@@ -11,7 +11,9 @@ export type TaskName =
   | 'products_refresh'
   | 'suggest_matches'
   | 'maintenance'
-  | 'reindex_model';
+  | 'reindex_model'
+  | 'feeds_tick'
+  | 'feed_fetch';
 
 export interface EnqueueOptions {
   queueName?: string;

@@ -3,7 +3,8 @@ import { Link, useParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
 import { useAuth } from '../auth';
-import type { ImportRun, Supplier } from '../types';
+import type { FeedView, ImportRun, Supplier } from '../types';
+import { FeedCard } from '../components/FeedCard';
 import { ErrorNotice, Spinner, useDocumentTitle } from '../components/ui';
 import { dateTime } from '../format';
 import { SupplierForm, SupplierStatus } from './SuppliersPage';
@@ -14,7 +15,7 @@ export default function SupplierDetailPage() {
   const { isAdmin } = useAuth();
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
-  const s = useQuery({ queryKey: ['supplier', id], queryFn: () => api.get<{ supplier: Supplier; profiles: any[] }>(`/api/suppliers/${id}`) });
+  const s = useQuery({ queryKey: ['supplier', id], queryFn: () => api.get<{ supplier: Supplier; profiles: any[]; feed: FeedView }>(`/api/suppliers/${id}`) });
   const runs = useQuery({ queryKey: ['imports', { supplier: id }], queryFn: () => api.get<{ items: ImportRun[] }>(`/api/imports?supplier=${id}`) });
   const cats = useQuery({ queryKey: ['categories'], queryFn: () => api.get<{ items: Array<{ id: string; name: string }> }>('/api/categories') });
   const mappings = useQuery({ queryKey: ['category-mappings', id], queryFn: () => api.get<{ items: Array<{ raw_category: string; category_id: string | null; category_name: string | null; offers: number }> }>(`/api/suppliers/${id}/category-mappings`) });
@@ -57,7 +58,7 @@ export default function SupplierDetailPage() {
             <dt>Prezzi</dt><dd>{sup.defaultVatTreatment === 'net' ? 'IVA esclusa' : sup.defaultVatTreatment === 'gross' ? `IVA inclusa (${sup.defaultVatRate ?? '?'}%)` : 'IVA non dichiarata'} · {sup.defaultCurrency}</dd>
             <dt>Dati vecchi dopo</dt><dd>{sup.staleAfterHours} ore</dd>
             <dt>Host immagini</dt><dd className="mono small">{sup.imageHostAllowlist.length ? sup.imageHostAllowlist.join(', ') : 'qualsiasi host pubblico'}</dd>
-            <dt>Aggiornamento</dt><dd>{sup.connectorKind === 'manual_upload' ? 'caricamento manuale di CSV/XLSX' : sup.connectorKind}</dd>
+            <dt>Aggiornamento</dt><dd>{sup.feedEnabled ? `feed automatico, ${sup.feedScheduleText}` : 'caricamento manuale di CSV/XLSX'}</dd>
             {sup.website && (<><dt>Sito</dt><dd><a href={sup.website} target="_blank" rel="noopener noreferrer">{sup.website}</a></dd></>)}
           </dl>
           {s.data!.profiles.length > 0 && <p className="muted small">Mappatura colonne salvata: verrà proposta al prossimo import.</p>}
@@ -76,6 +77,9 @@ export default function SupplierDetailPage() {
             <p className="muted">Nessun import.</p>
           )}
         </div>
+      </div>
+      <div style={{ marginTop: 16 }}>
+        <FeedCard supplierId={sup.id} feed={s.data!.feed} isAdmin={isAdmin} />
       </div>
       <section className="card" aria-labelledby="cat-title">
         <h2 id="cat-title">Categorie del fornitore → categorie normalizzate</h2>

@@ -4,6 +4,7 @@ import { parseBarcode, displayGtin } from '../lib/gtin.ts';
 import { foldText } from '../lib/text.ts';
 import { evaluatePrice, REASON_LABELS, type PriceSummary } from '../domain/pricing.ts';
 import { getActiveModel } from '../vision/index-admin.ts';
+import { listChanges } from './changes.ts';
 
 export interface CatalogQuery {
   q?: string;
@@ -256,6 +257,7 @@ export async function productDetail(id: string, opts: { isAdmin: boolean }) {
     ),
     getActiveModel(pool),
   ]);
+  const recentChanges = await listChanges({ product: id, sinceHours: 24 * 90, offset: 0, limit: 30 }, 30, 0);
   const pendingSources = (
     await pool.query(
       `SELECT count(*) FILTER (WHERE src.status = 'pending')::int AS pending, count(*) FILTER (WHERE src.status IN ('failed', 'blocked'))::int AS failed
@@ -342,5 +344,6 @@ export async function productDetail(id: string, opts: { isAdmin: boolean }) {
     images: { pending: pendingSources.pending, failed: pendingSources.failed, activeModel: activeModel?.key ?? null },
     reviews: reviews.rows,
     history: history.rows,
+    recentChanges,
   };
 }

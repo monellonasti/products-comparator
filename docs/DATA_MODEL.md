@@ -25,6 +25,9 @@ erDiagram
   audit_events }o--o{ products : "related_ids"
   users ||--o{ photo_searches : ""
   photo_searches ||--o{ search_feedback : ""
+  suppliers ||--o{ supplier_secrets : "segreti feed (cifrati)"
+  supplier_offers ||--o{ offer_changes : "variazioni"
+  import_runs ||--o{ offer_changes : ""
 ```
 
 ## Entità
@@ -32,7 +35,7 @@ erDiagram
 | Tabella | Responsabilità | Vincoli principali |
 |---|---|---|
 | `users`, `sessions` | Utenti con ruolo `admin`/`operator`; sessioni opache (in DB solo lo SHA-256 del token) | email `citext UNIQUE`; cascade sulle sessioni |
-| `suppliers` | Fornitore, priorità dei dati canonici, IVA/valuta di default, host immagini autorizzati, soglia di obsolescenza, connettore (senza segreti), stato dell'ultimo import | `code UNIQUE`, formato del codice |
+| `suppliers` | Fornitore, priorità dei dati canonici, IVA/valuta di default, host immagini autorizzati, soglia di obsolescenza, connettore/feed (configurazione senza segreti), pianificazione e stato del feed, stato dell'ultimo import | `code UNIQUE`, formato del codice; indice parziale sui feed in scadenza |
 | `import_profiles` | Mappatura colonne e opzioni di lettura salvate per fornitore | `UNIQUE(supplier_id, name)` |
 | `categories`, `category_mappings` | Categorie normalizzate e mappatura delle categorie grezze del fornitore | PK `(supplier_id, raw_category)` |
 | `products` | Identità canonica, valori canonici calcolati, override manuali, riepilogo per la griglia (prezzo migliore, conteggi), testo di ricerca | `status` ∈ active/merged/archived; `merged ⇔ merged_into_id`; GIN su `search_tsv` e trigram |
@@ -51,6 +54,8 @@ erDiagram
 | `audit_events` | Traccia append-only con dati per l'annullamento (`reverts_event_id` / `reverted_by_event_id`) | GIN su `related_ids` |
 | `photo_searches`, `search_feedback` | Ricerche per foto (immagine a scadenza), risultati, tempi, feedback | indice sulle scadenze |
 | `app_settings` | Impostazioni applicative chiave/valore | — |
+| `supplier_secrets` | URL e credenziali dei feed, cifrati (AES-256-GCM, AAD `fornitore:nome`) | PK `(supplier_id, name)`; mai esposti dall'API |
+| `offer_changes` | Variazioni per offerta a ogni import: prezzo (% se confrontabile), disponibilità, quantità, immagini, nuove/uscite/rientrate, EAN | `UNIQUE(import_run_id, offer_id, change_type)`; conservazione `CHANGE_HISTORY_DAYS` |
 
 Le code di lavoro vivono nello schema `graphile_worker`, gestito dalla libreria.
 

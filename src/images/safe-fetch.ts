@@ -58,6 +58,9 @@ export interface SafeFetchOptions {
   maxBytes?: number;
   timeoutMs?: number;
   maxRedirects?: number;
+  accept?: string;
+  /** Sent ONLY to the origin of the initial URL: credentials never follow a cross-origin redirect. */
+  credentialHeaders?: Record<string, string>;
 }
 
 export async function safeFetch(rawUrl: string, opts: SafeFetchOptions): Promise<FetchOutcome> {
@@ -68,10 +71,12 @@ export async function safeFetch(rawUrl: string, opts: SafeFetchOptions): Promise
     return { kind: 'permanent', reason: 'URL non valido' };
   }
   const maxRedirects = opts.maxRedirects ?? 3;
+  const origin = url.origin;
   for (let hop = 0; hop <= maxRedirects; hop++) {
     const check = await resolveTarget(url, opts.allowlist);
     if ('reason' in check) return { kind: 'permanent', reason: check.reason };
-    const res = await request(url, check.address, check.family, opts);
+    const extra = url.origin === origin ? opts.credentialHeaders ?? {} : {};
+    const res = await request(url, check.address, check.family, opts, extra);
     if (res.kind === 'redirect') {
       try {
         url = new URL(res.location, url);
@@ -110,6 +115,7 @@ function request(
   address: string,
   family: 4 | 6,
   opts: SafeFetchOptions,
+  extraHeaders: Record<string, string>,
 ): Promise<FetchOutcome | { kind: 'redirect'; location: string }> {
   const maxBytes = opts.maxBytes ?? config.IMAGE_FETCH_MAX_BYTES;
   const timeoutMs = opts.timeoutMs ?? config.IMAGE_FETCH_TIMEOUT_MS;
@@ -119,7 +125,11 @@ function request(
       url,
       {
         method: 'GET',
-        headers: { 'user-agent': 'ProductsComparator/0.1 (catalogo B2B interno)', accept: 'image/avif,image/webp,image/*;q=0.9,*/*;q=0.5' },
+        headers: {
+          ...extraHeaders,
+          'user-agent': 'ProductsComparator/0.1 (catalogo B2B interno)',
+          accept: opts.accept ?? 'image/avif,image/webp,image/*;q=0.9,*/*;q=0.5',
+        },
         // Pin the connection to the validated address; TLS still verifies the certificate for url.hostname.
         lookup: (_host: string, o: { all?: boolean } | undefined, cb: (err: Error | null, a: any, f?: number) => void) =>
           o?.all ? cb(null, [{ address, family }]) : cb(null, address, family),

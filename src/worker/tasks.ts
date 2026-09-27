@@ -7,6 +7,8 @@ import { fetchImageSource, embedAsset } from '../images/tasks.ts';
 import { refreshProducts } from '../domain/canonical.ts';
 import { suggestForProducts } from '../domain/suggestions.ts';
 import { enqueueEmbed } from '../jobs/queue.ts';
+import { feedsTick, runFeed } from '../imports/feed.ts';
+import { config } from '../config.ts';
 
 export const taskList: TaskList = {
   async import_run(payload: any, helpers) {
@@ -45,6 +47,16 @@ export const taskList: TaskList = {
     helpers.logger.info(`suggest_matches supplier=${payload.supplierId} products=${ids.length} opened=${opened}`);
   },
 
+  async feeds_tick(_payload, helpers) {
+    const n = await feedsTick();
+    if (n) helpers.logger.info(`feeds_tick: ${n} feed da eseguire`);
+  },
+
+  async feed_fetch(payload: any, helpers) {
+    const outcome = await runFeed(payload.supplierId, payload.trigger === 'manual' ? 'manual' : 'schedule', (m) => helpers.logger.info(m));
+    helpers.logger.info(`feed_fetch ${payload.supplierId}: ${outcome}`);
+  },
+
   async reindex_model(payload: any, helpers) {
     // Enqueue embeddings for every asset missing a vector for this model (used when switching model).
     const rows = (
@@ -71,8 +83,9 @@ export const taskList: TaskList = {
       if (s.image_key) await storage().delete(s.image_key).catch(() => {});
       await pool.query(`UPDATE photo_searches SET image_deleted_at = now() WHERE id = $1`, [s.id]);
     }
-    // 2) Expired sessions.
+    // 2) Expired sessions; change history older than CHANGE_HISTORY_DAYS.
     const sessions = await pool.query(`DELETE FROM sessions WHERE expires_at < now()`);
+    await pool.query(`DELETE FROM offer_changes WHERE created_at < now() - make_interval(days => $1)`, [config.CHANGE_HISTORY_DAYS]);
     // 3) Staging rows of finished runs older than 7 days (kept for failed runs to allow retry).
     await pool.query(
       `DELETE FROM import_staging_rows WHERE import_run_id IN (SELECT id FROM import_runs WHERE status IN ('succeeded', 'cancelled') AND finished_at < now() - interval '7 days')`,

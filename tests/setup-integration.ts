@@ -6,3 +6,5 @@ process.env.NODE_ENV = 'test';
 process.env.STORAGE_DRIVER = 'fs';
 process.env.STORAGE_FS_ROOT = '.data/test-storage';
 process.env.VISION_WARMUP = 'false';
+process.env.SECRETS_KEY = Buffer.alloc(32, 7).toString('base64'); // test-only key
+process.env.IMAGE_FETCH_DEV_ALLOW = '127.0.0.1:47124';

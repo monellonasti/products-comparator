@@ -51,6 +51,7 @@ export default function SuppliersPage() {
                 <th className="num">Offerte attive</th>
                 <th>Dati aggiornati</th>
                 <th className="num">Priorità</th>
+                <th>Aggiornamento</th>
                 <th>Prezzi</th>
                 <th>Da sistemare</th>
               </tr>
@@ -70,6 +71,16 @@ export default function SuppliersPage() {
                   <td className="num">{s.stats?.activeOffers.toLocaleString('it-IT')}</td>
                   <td title={dateTime(s.lastSuccessAsOf)}>{ago(s.lastSuccessAsOf)}</td>
                   <td className="num">{s.priority}</td>
+                  <td className="small">
+                    {s.feedEnabled ? (
+                      <>
+                        Feed {s.feedScheduleText}
+                        {s.feedLastStatus === 'failed' && <div><span className="badge badge-bad">ultimo feed non riuscito</span></div>}
+                      </>
+                    ) : (
+                      'Manuale'
+                    )}
+                  </td>
                   <td>{s.defaultVatTreatment === 'net' ? 'IVA esclusa' : s.defaultVatTreatment === 'gross' ? `IVA inclusa ${s.defaultVatRate ?? ''}%` : <span className="badge badge-warn">IVA non dichiarata</span>}</td>
                   <td className="small">
                     {s.stats && s.stats.imagesFailed > 0 && <div>{s.stats.imagesFailed} immagini non scaricabili</div>}

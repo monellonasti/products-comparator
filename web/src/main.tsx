@@ -17,6 +17,7 @@ const SupplierDetailPage = lazy(() => import('./pages/SupplierDetailPage'));
 const ImportsPage = lazy(() => import('./pages/ImportsPage'));
 const ImportWizardPage = lazy(() => import('./pages/ImportWizardPage'));
 const ImportDetailPage = lazy(() => import('./pages/ImportDetailPage'));
+const ChangesPage = lazy(() => import('./pages/ChangesPage'));
 const ReviewsPage = lazy(() => import('./pages/ReviewsPage'));
 const ReviewDetailPage = lazy(() => import('./pages/ReviewDetailPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
@@ -52,6 +53,7 @@ function App() {
           <Route path="fornitori/:id" element={<SupplierDetailPage />} />
           <Route path="importazioni" element={<ImportsPage />} />
           <Route path="importazioni/nuova" element={<ImportWizardPage />} />
+          <Route path="importazioni/variazioni" element={<ChangesPage />} />
           <Route path="importazioni/:id" element={<ImportDetailPage />} />
           <Route path="corrispondenze" element={<ReviewsPage />} />
           <Route path="corrispondenze/:id" element={<ReviewDetailPage />} />

@@ -8,22 +8,16 @@ import {
 } from '../../imports/service.ts';
 import { TARGET_FIELDS, type ColumnMapping } from '../../imports/fields.ts';
 import { invalidateFacets } from '../../search/catalog.ts';
+import { csvCell } from '../../lib/csv.ts';
 
 function runToApi(r: any) {
   return {
     id: r.id, supplierId: r.supplier_id, supplierName: r.supplier_name, status: r.status, mode: r.mode, fileName: r.file_name, fileKind: r.file_kind,
     fileSize: r.file_size, fileSha256: r.file_sha256, asOf: r.as_of, counters: r.counters, stagedRows: r.staged_rows, checkpointRow: r.checkpoint_row,
     attempts: r.attempts, error: r.error, snapshotResult: r.snapshot_result, createdAt: r.created_at, queuedAt: r.queued_at, startedAt: r.started_at,
-    finishedAt: r.finished_at, heartbeatAt: r.heartbeat_at, createdBy: r.created_by_name ?? null, mapping: r.mapping, defaults: r.defaults,
+    finishedAt: r.finished_at, heartbeatAt: r.heartbeat_at, createdBy: r.created_by_name ?? null, sourceKind: r.source_kind, mapping: r.mapping, defaults: r.defaults,
     parseOptions: r.parse_options,
   };
-}
-
-/** CSV cell escaping that also neutralises spreadsheet formula injection. */
-function csvCell(v: unknown): string {
-  let s = v === null || v === undefined ? '' : String(v);
-  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
-  return /[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
 export async function importRoutes(app: FastifyInstance) {

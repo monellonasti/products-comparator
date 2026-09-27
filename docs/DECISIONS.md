@@ -62,3 +62,19 @@ Ogni voce: contesto → decisione → conseguenze. Le date sono assolute.
 
 ## D-014 · 2026-09-25 · Verifica UI senza credenziali nel browser
 - Durante lo sviluppo le schermate autenticate sono state verificate nel browser integrato tramite un proxy locale (fuori dal repository) che ottiene la sessione via API. Nessuna password viene digitata in campi web dall'agente. Il login dal form è stato verificato solo nel rendering; il flusso di login è coperto dai test API.
+
+## D-015 · 2026-09-27 · Feed pianificati generici (HTTP CSV/XLSX), non connettori specifici
+- **Richiesta**: una volta impostato un fornitore, scaricare automaticamente il listino (una volta al giorno) e riportare le variazioni di prezzi, immagini e quantità.
+- **Decisione**: un connettore generico "file a un indirizzo" (http/https, CSV/XLSX, autenticazione none/basic/bearer/header), con frequenza giornaliera a orario fisso (fuso Europe/Rome, ora legale gestita) oppure ogni N ore. Il file scaricato segue la stessa pipeline degli upload, con la mappatura salvata. Non è legato a un fornitore specifico e quindi rispetta il vincolo di non inventare API.
+- **Pianificazione**: un tick graphile-worker ogni 5 minuti "prenota" i feed scaduti (`feed_next_run_at`) nel DB con `FOR UPDATE SKIP LOCKED`. Nessuno stato in memoria: un tick perso viene recuperato dal successivo.
+- **Errori**: fino a 3 nuovi tentativi (30/60/90 min), poi il prossimo orario. Il fornitore viene marcato "ultimo import fallito" e le sue offerte "non aggiornate". Se c'è già un import attivo, rinvio di 15 minuti.
+
+## D-016 · 2026-09-27 · Segreti dei feed cifrati nel DB
+- URL e credenziali dei feed in `supplier_secrets`, cifrati con AES-256-GCM e chiave `SECRETS_KEY` (32 byte, variabile d'ambiente). L'AAD `fornitore:nome` impedisce di spostare un segreto su un altro fornitore.
+- In sola scrittura dall'interfaccia: mai restituiti dall'API, mai nei log né nell'audit (solo l'URL senza query). Credenziali solo in HTTPS e mai inoltrate a un'origine diversa dopo un redirect.
+- Senza `SECRETS_KEY` i feed non si possono configurare (errore esplicito). Perdere la chiave significa reinserire le credenziali, per cui va conservata con i backup.
+
+## D-017 · 2026-09-27 · Report delle variazioni per offerta
+- `offer_changes` registra prezzo (con % solo se confrontabile), disponibilità, quantità, immagini, nuove offerte, uscite, rientri e cambio EAN, nella **stessa transazione** del batch d'import. Unicità per `(run, offerta, tipo)`, quindi le riprese non creano duplicati.
+- Vale per tutti gli import, non solo per i feed. Al primo import di un fornitore le "nuove offerte" non vengono registrate, per non generare rumore.
+- Il contenuto di un'immagine sostituito allo stesso URL non viene rilevato (limite dichiarato). Nessuna notifica email nella V1.

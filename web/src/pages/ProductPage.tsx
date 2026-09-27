@@ -6,6 +6,7 @@ import { useAuth } from '../auth';
 import type { CatalogPage, Offer, ProductDetail } from '../types';
 import { BestPriceBlock, ErrorNotice, Modal, Notice, Spinner, StockBadge, useDocumentTitle } from '../components/ui';
 import { ago, BARCODE_STATUS_LABELS, dateTime, LINK_LABELS, money, stockText, VAT_LABELS } from '../format';
+import { ChangesTable } from '../components/changes';
 
 const ATTR_LABELS: Record<string, string> = { color: 'Colore', size: 'Misura/taglia', variant: 'Variante', net_content: 'Contenuto netto', pieces: 'Pezzi per articolo', material: 'Materiale' };
 const ACTION_LABELS: Record<string, string> = {
@@ -283,6 +284,16 @@ export default function ProductPage() {
           </button>
         )}
       </section>
+
+      {d.recentChanges?.length > 0 && (
+        <section className="card" aria-labelledby="pchanges-title">
+          <div className="card-title">
+            <h2 id="pchanges-title">Variazioni recenti delle offerte</h2>
+            <span className="muted small">ultimi 90 giorni</span>
+          </div>
+          <ChangesTable items={d.recentChanges} showProduct={false} />
+        </section>
+      )}
 
       <section className="card" aria-labelledby="provenance-title">
         <h2 id="provenance-title">Provenienza dei dati</h2>
