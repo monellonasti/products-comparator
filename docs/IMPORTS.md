@@ -97,6 +97,7 @@ A ogni import, da feed o manuale, per ogni offerta già esistente si registra in
 | Disponibilità | lo stato cambia (disponibile / scarsa / esaurito / in arrivo / non dichiarata) | stato e quantità prima e dopo |
 | Quantità | stessa disponibilità, quantità diversa | quantità prima e dopo |
 | Immagini | URL di immagini aggiunti o tolti (solo se il file ha colonne immagine mappate) | elenco degli URL aggiunti e rimossi |
+| Immagine sostituita | stesso URL, contenuto diverso (ricontrollo dopo l'import, vedi sotto) | immagine precedente e nuova (miniature prima/dopo) |
 | Nuova offerta | SKU mai visto (non registrato al **primo** import del fornitore, per evitare migliaia di righe inutili) | prezzo e disponibilità |
 | Uscita dal listino | offerta disattivata da uno snapshot | ultimo prezzo noto |
 | Tornata a listino | offerta disattivata che ricompare | prezzo |
@@ -104,8 +105,10 @@ A ogni import, da feed o manuale, per ogni offerta già esistente si registra in
 
 Dove si consulta: **Importazioni › Variazioni** (filtri per periodo, fornitore, tipo, variazione minima di prezzo in %, export CSV), il riquadro **Variazioni rilevate** nel dettaglio di ogni import, la sezione **Variazioni recenti delle offerte** nella scheda prodotto (ultimi 90 giorni) e il riepilogo dell'ultimo feed nella pagina del fornitore. Lo storico viene conservato per `CHANGE_HISTORY_DAYS` giorni (default 365) e poi eliminato dal job di manutenzione.
 
+**Immagini sostituite allo stesso indirizzo** (`src/images/tasks.ts`). Al termine di ogni import il worker ricontrolla le immagini già scaricate del fornitore, usate da offerte attive e non ricontrollate da `IMAGE_RECHECK_HOURS` ore (default 20, quindi una volta al giorno con un feed giornaliero; 0 disattiva), al massimo `IMAGE_RECHECK_MAX_PER_RUN` per import (default 5.000, le più vecchie per prime). Il ricontrollo usa richieste condizionali (`If-None-Match` / `If-Modified-Since` con ETag e Last-Modified salvati al download): se il server risponde 304 non si scarica nulla. Senza questi header l'immagine viene riscaricata e confrontata byte per byte (SHA-256). Se il contenuto è cambiato, l'URL punta al nuovo asset (derivate e vettori calcolati come per un'immagine nuova, stesse protezioni SSRF e stesso limite per host), la scheda prodotto mostra la nuova immagine e per ogni offerta attiva che la usa si registra una variazione "Immagine sostituita", associata all'import che ha avviato il controllo. L'immagine precedente resta nello storage per il confronto prima/dopo. Se il ricontrollo fallisce (timeout, 404, file non valido) l'immagine attuale resta e si riprova dopo un import successivo.
+
 Limiti noti:
-- se un fornitore sostituisce il contenuto di un'immagine **mantenendo lo stesso URL**, la modifica non viene rilevata: si confrontano gli URL, non i byte ricaricati;
+- le immagini sostituite compaiono qualche minuto dopo la fine dell'import (il ricontrollo gira in background, dopo i nuovi download);
 - nessuna notifica push o email: il report si consulta nell'app. Un riepilogo via email richiederà la configurazione SMTP.
 
 ## Connettori futuri (src/imports/connectors.ts)

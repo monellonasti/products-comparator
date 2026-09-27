@@ -77,4 +77,20 @@ Ogni voce: contesto → decisione → conseguenze. Le date sono assolute.
 ## D-017 · 2026-09-27 · Report delle variazioni per offerta
 - `offer_changes` registra prezzo (con % solo se confrontabile), disponibilità, quantità, immagini, nuove offerte, uscite, rientri e cambio EAN, nella **stessa transazione** del batch d'import. Unicità per `(run, offerta, tipo)`, quindi le riprese non creano duplicati.
 - Vale per tutti gli import, non solo per i feed. Al primo import di un fornitore le "nuove offerte" non vengono registrate, per non generare rumore.
-- Il contenuto di un'immagine sostituito allo stesso URL non viene rilevato (limite dichiarato). Nessuna notifica email nella V1.
+- Il contenuto di un'immagine sostituito allo stesso URL non veniva rilevato (superato da D-018). Nessuna notifica email nella V1.
+
+## D-018 · 2026-09-28 · Ricontrollo delle immagini dopo ogni import
+- **Problema**: un fornitore può sostituire la foto mantenendo lo stesso URL. Confrontando solo gli URL la variazione non era visibile e il catalogo restava con l'immagine vecchia.
+- **Decisione**: dopo ogni import (feed o manuale) si ricontrollano le immagini del fornitore più vecchie di `IMAGE_RECHECK_HOURS` (20 h), con richieste condizionali (ETag/Last-Modified) e, in mancanza, confronto SHA-256 dei byte. Contenuto diverso → nuovo asset, vettori ricalcolati, variazione `image_replaced` con prima/dopo, associata all'import.
+- **Perché dopo l'import e non in un job separato**: la cadenza segue quella dei listini (una volta al giorno con i feed), il cambio immagine finisce nello stesso report dell'import, e non serve un'altra pianificazione. Le richieste usano le stesse code per host dei download, con priorità più bassa: non rallentano le immagini nuove.
+- **Costi**: con server che supportano ETag il controllo quotidiano costa una richiesta 304 per immagine. Senza ETag si riscarica l'immagine: per cataloghi molto grandi si può alzare l'intervallo o abbassare `IMAGE_RECHECK_MAX_PER_RUN` (il controllo procede a rotazione, dalle più vecchie).
+- **Asset precedenti**: restano (servono al confronto prima/dopo e a tornare indietro senza ricalcolare i vettori). Nessuna pulizia automatica nella V1.
+
+## D-019 · 2026-09-28 · Modello attivo letto dal database; ritorno al modello precedente
+- La ricerca usa il modello `active` in `embedding_models`, non `VISION_MODEL`: dopo `model:prepare --activate` il cambio vale subito, senza riavvio. Anche il precaricamento all'avvio dell'API ora segue il modello attivo (prima caricava `VISION_MODEL`, occupando memoria per un modello non usato).
+- Difetto trovato provando il cambio per intero: un modello `retired` non veniva più indicizzato (corretto: il worker non spreca inferenza su modelli ritirati), ma `model:prepare` lo lasciava `retired`, quindi un ritorno al modello precedente non raggiungeva mai la copertura completa senza `--force`. Ora `model:prepare` lo riporta a `building` e accoda i vettori mancanti.
+
+## D-020 · 2026-09-28 · `pnpm dev` in un solo terminale
+- Script Node (`src/scripts/dev.ts`, nessuna dipendenza in più) che avvia API con `--watch`, worker e Vite, con output prefissato. Il worker non ha `--watch`: un riavvio a metà job lascerebbe il job bloccato fino al timeout del lock di graphile-worker.
+- Su Windows `kill()` termina solo il processo figlio diretto e `node --watch` lascerebbe vivo il processo dell'API: si usa `taskkill /T` per chiudere l'intero albero.
+

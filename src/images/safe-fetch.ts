@@ -11,7 +11,9 @@ import { lookup } from 'node:dns/promises';
 import { config, isProduction } from '../config.ts';
 
 export type FetchOutcome =
-  | { kind: 'ok'; bytes: Buffer; finalUrl: string; contentType: string | null }
+  | { kind: 'ok'; bytes: Buffer; finalUrl: string; contentType: string | null; etag: string | null; lastModified: string | null }
+  /** Only with `conditional`: the server confirmed the cached copy is still current (HTTP 304). */
+  | { kind: 'not_modified'; reason: string }
   | { kind: 'permanent'; reason: string }
   | { kind: 'transient'; reason: string };
 
@@ -61,6 +63,8 @@ export interface SafeFetchOptions {
   accept?: string;
   /** Sent ONLY to the origin of the initial URL: credentials never follow a cross-origin redirect. */
   credentialHeaders?: Record<string, string>;
+  /** Validators from a previous download: sent as If-None-Match / If-Modified-Since. */
+  conditional?: { etag?: string | null; lastModified?: string | null };
 }
 
 export async function safeFetch(rawUrl: string, opts: SafeFetchOptions): Promise<FetchOutcome> {
@@ -126,6 +130,8 @@ function request(
       {
         method: 'GET',
         headers: {
+          ...(opts.conditional?.etag ? { 'if-none-match': opts.conditional.etag } : {}),
+          ...(opts.conditional?.lastModified ? { 'if-modified-since': opts.conditional.lastModified } : {}),
           ...extraHeaders,
           'user-agent': 'ProductsComparator/0.1 (catalogo B2B interno)',
           accept: opts.accept ?? 'image/avif,image/webp,image/*;q=0.9,*/*;q=0.5',
@@ -137,6 +143,11 @@ function request(
       } as any,
       (res) => {
         const status = res.statusCode ?? 0;
+        if (status === 304 && opts.conditional) {
+          res.resume();
+          resolve({ kind: 'not_modified', reason: 'HTTP 304' });
+          return;
+        }
         if (status >= 300 && status < 400 && res.headers.location) {
           res.resume();
           resolve({ kind: 'redirect', location: res.headers.location });
@@ -169,7 +180,16 @@ function request(
           }
           chunks.push(c);
         });
-        res.on('end', () => resolve({ kind: 'ok', bytes: Buffer.concat(chunks), finalUrl: url.toString(), contentType: (res.headers['content-type'] as string) ?? null }));
+        const header = (name: string) => {
+          const v = res.headers[name];
+          return typeof v === 'string' && v.length <= 512 ? v : null;
+        };
+        res.on('end', () =>
+          resolve({
+            kind: 'ok', bytes: Buffer.concat(chunks), finalUrl: url.toString(), contentType: header('content-type'),
+            etag: header('etag'), lastModified: header('last-modified'),
+          }),
+        );
         res.on('error', (e) => resolve({ kind: 'transient', reason: e.message }));
       },
     );

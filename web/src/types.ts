@@ -223,7 +223,7 @@ export interface TargetField {
   multi?: boolean;
 }
 
-export type ChangeType = 'price' | 'availability' | 'stock' | 'images' | 'new_offer' | 'removed' | 'reactivated' | 'barcode';
+export type ChangeType = 'price' | 'availability' | 'stock' | 'images' | 'image_replaced' | 'new_offer' | 'removed' | 'reactivated' | 'barcode';
 
 export interface OfferChange {
   id: number;

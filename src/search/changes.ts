@@ -89,6 +89,10 @@ export function describeChange(type: ChangeType, oldV: any, newV: any): [string,
         `${oldV?.count ?? 0} immagini${oldV?.removed?.length ? `; rimosse: ${oldV.removed.join(' ')}` : ''}`,
         `${newV?.count ?? 0} immagini${newV?.added?.length ? `; aggiunte: ${newV.added.join(' ')}` : ''}`,
       ];
+    case 'image_replaced': {
+      const urls = (v: any) => (v?.images ?? []).map((i: any) => i.url).join(' ');
+      return [`contenuto precedente: ${urls(oldV)}`, `nuovo contenuto allo stesso indirizzo: ${urls(newV)}`];
+    }
     case 'new_offer':
       return ['', price(newV)];
     case 'removed':

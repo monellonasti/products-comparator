@@ -2,6 +2,7 @@
 // so the real download pipelines (SSRF checks, retries, dedupe, derivatives, scheduled feeds) run on demo
 // data. Requires IMAGE_FETCH_DEV_ALLOW=127.0.0.1:4010.
 import http from 'node:http';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -26,7 +27,10 @@ http
     const file = feed ? path.join(FEEDS, feed[1]) : path.join(IMAGES, image![1]);
     try {
       const bytes = await readFile(file);
-      res.writeHead(200, { 'content-type': TYPES[path.extname(file).toLowerCase()] ?? 'application/octet-stream', 'content-length': bytes.length }).end(bytes);
+      // ETag like a real web server: lets the image re-check use conditional requests (HTTP 304).
+      const etag = `"${createHash('sha1').update(bytes).digest('hex').slice(0, 16)}"`;
+      if (req.headers['if-none-match'] === etag) return void res.writeHead(304, { etag }).end();
+      res.writeHead(200, { 'content-type': TYPES[path.extname(file).toLowerCase()] ?? 'application/octet-stream', 'content-length': bytes.length, etag }).end(bytes);
     } catch {
       res.writeHead(404).end();
     }

@@ -27,6 +27,20 @@ Cosa emerge (su dati sintetici):
 - con la soglia provvisoria 0,78 non ci sono falsi match, ma con la foto intera anche i prodotti giusti restano "simili" (score < 0,78): **le soglie vanno calibrate su foto reali**;
 - i fuori catalogo ottengono comunque alternative "simili" perché hanno forme simili a prodotti presenti. È il comportamento voluto dal caso H (alternative esplicitamente simili, nessuna identità dichiarata).
 
+### Confronto con CLIP B/32 (2026-09-28, stesso set sintetico)
+
+Eseguito durante la prova del cambio di modello (`pnpm model:prepare`), stesso catalogo demo (46 immagini) e stesse 19 query. Ciascun modello con le proprie soglie provvisorie (SigLIP 2: 0,78/0,55; CLIP: 0,85/0,70). Report: `docs/benchmarks/2026-09-28-visual-synthetic-clip-*.json`.
+
+| Metrica | SigLIP 2, foto intera | CLIP, foto intera | SigLIP 2, ritaglio | CLIP, ritaglio |
+|---|---|---|---|---|
+| Recall@1 (EAN esatto) | 64,3% | 42,9% | 85,7% | 64,3% |
+| Recall@5 (EAN esatto) | 92,9% | 78,6% | 100% | 100% |
+| Falsi match sui fuori catalogo | 0/5 | 0/5 | 0/5 | 0/5 |
+| Astensione completa sui fuori catalogo | 1/5 | 4/5 | 1/5 | 5/5 |
+| Inferenza p50 | 792 ms | 195 ms | 729 ms | 83 ms |
+
+Su questo set SigLIP 2 mette più spesso il prodotto giusto al primo posto; CLIP è 4-9 volte più veloce. L'astensione più alta di CLIP dipende soprattutto dalle sue soglie provvisorie più alte, non è un confronto a parità di soglie. **Sono 19 foto sintetiche**: la scelta del modello va confermata sulle foto reali (protocollo sotto).
+
 ## 2. Carico: 60.000 prodotti e 60.000 vettori (`pnpm bench:load`)
 
 Database separato (`comparator_bench`): 60.000 prodotti, 110.000 offerte su 3 fornitori, 60.000 vettori casuali a 768 dimensioni (HNSW m=16, ef_construction=64). App reale via HTTP, **5 utenti concorrenti con account distinti**, 200 richieste API, 25 ricerche per foto con il modello reale.

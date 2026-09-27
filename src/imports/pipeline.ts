@@ -216,6 +216,8 @@ async function finalize(runId: string, log: Logger) {
       [run.supplier_id, run.as_of, run.mode === 'snapshot'],
     );
     await enqueue(tx, 'suggest_matches', { supplierId: run.supplier_id, importRunId: runId }, { jobKey: `suggest:${run.supplier_id}`, maxAttempts: 3 });
+    // Pictures replaced by the supplier at the same URL (reported as 'image_replaced' changes of this run).
+    await enqueue(tx, 'images_recheck', { supplierId: run.supplier_id, runId }, { jobKey: `images_recheck:${run.supplier_id}`, maxAttempts: 3 });
     log.info({ runId, counters, snapshotResult }, 'import finalized');
   });
 }

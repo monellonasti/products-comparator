@@ -52,7 +52,10 @@ Sul set sintetico (vedi [BENCHMARK.md](BENCHMARK.md)) i corretti con ritaglio ha
 
 1. `pnpm model:prepare -- --model clip-vit-b32`: registra il modello (`building`), crea il suo indice HNSW parziale e accoda gli embedding di tutte le immagini. I nuovi download vengono indicizzati sia per il modello attivo sia per quello in costruzione.
 2. Confronto dei due modelli con `pnpm bench:visual` sullo stesso set etichettato.
-3. `pnpm model:prepare -- --model clip-vit-b32 --activate`, solo a copertura completa (`--force` per forzare). Poi `VISION_MODEL=clip-vit-b32` e riavvio di API e worker. Il vecchio modello passa a `retired`: i suoi vettori restano per un eventuale rollback e si possono eliminare in seguito.
+3. `pnpm model:prepare -- --model clip-vit-b32 --activate`, solo a copertura completa (`--force` per forzare). La ricerca legge il modello attivo dal database e lo usa **subito**, senza riavvio (il primo utilizzo carica i pesi, ~1 s). Aggiornare comunque `VISION_MODEL=clip-vit-b32` nel `.env`: serve per le nuove installazioni e per gli script; il precaricamento all'avvio dell'API segue il modello attivo. Il vecchio modello passa a `retired`: i suoi vettori restano per un eventuale ritorno e si possono eliminare in seguito.
+4. **Ritorno al modello precedente**: `pnpm model:prepare -- --model siglip2-base-p16-224` lo riporta da `retired` a `building` e calcola i vettori delle immagini arrivate nel frattempo (mentre era ritirato non venivano indicizzate per lui); poi `--activate` come al punto 3.
+
+Procedura eseguita per intero il 2026-09-28 sul catalogo demo (SigLIP 2 → CLIP → SigLIP 2): vedi [PROGRESS.md](PROGRESS.md) e, per il confronto sintetico, [BENCHMARK.md](BENCHMARK.md).
 
 Vettori di modelli diversi non vengono mai confrontati tra loro: la chiave include modello, revisione e preprocessing.
 

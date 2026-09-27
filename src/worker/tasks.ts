@@ -3,7 +3,7 @@ import type { TaskList } from 'graphile-worker';
 import { pool, withTx } from '../db/pool.ts';
 import { storage } from '../storage/index.ts';
 import { runImport } from '../imports/pipeline.ts';
-import { fetchImageSource, embedAsset } from '../images/tasks.ts';
+import { fetchImageSource, embedAsset, recheckImageSource, scheduleImageRechecks } from '../images/tasks.ts';
 import { refreshProducts } from '../domain/canonical.ts';
 import { suggestForProducts } from '../domain/suggestions.ts';
 import { enqueueEmbed } from '../jobs/queue.ts';
@@ -22,6 +22,16 @@ export const taskList: TaskList = {
 
   async image_fetch(payload: any) {
     await fetchImageSource(payload.sourceId);
+  },
+
+  async images_recheck(payload: any, helpers) {
+    const n = await scheduleImageRechecks(payload.supplierId, payload.runId ?? null);
+    if (n) helpers.logger.info(`images_recheck supplier=${payload.supplierId}: ${n} immagini da ricontrollare`);
+  },
+
+  async image_recheck(payload: any, helpers) {
+    const outcome = await recheckImageSource(payload.sourceId, payload.runId ?? null);
+    if (outcome === 'replaced') helpers.logger.info(`image_recheck ${payload.sourceId}: immagine sostituita dal fornitore`);
   },
 
   async image_embed(payload: any) {

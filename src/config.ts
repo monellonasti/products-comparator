@@ -37,6 +37,10 @@ const schema = z.object({
   IMAGE_FETCH_TIMEOUT_MS: z.coerce.number().int().positive().default(20000),
   IMAGE_FETCH_MAX_BYTES: z.coerce.number().int().positive().default(20 * 1024 * 1024),
   IMAGE_KEEP_ORIGINALS: bool.default(false),
+  // After each import, images older than this are re-checked (conditional request) to detect a picture
+  // replaced at the same URL. 0 disables the re-check. At most IMAGE_RECHECK_MAX_PER_RUN per import.
+  IMAGE_RECHECK_HOURS: z.coerce.number().int().min(0).default(20),
+  IMAGE_RECHECK_MAX_PER_RUN: z.coerce.number().int().positive().default(5000),
   // Development only: host:port pairs allowed despite resolving to private/loopback IPs (demo image server).
   IMAGE_FETCH_DEV_ALLOW: z.string().default(''),
 

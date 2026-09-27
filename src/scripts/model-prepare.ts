@@ -17,6 +17,10 @@ if (!values.model) {
 const spec = getModelSpec(values.model);
 await ensureWorkerSchema(config.DATABASE_URL);
 const key = await ensureModel(pool, spec, { activateIfNoneActive: false });
+// Going back to a retired model (rollback): it must index again the images added while it was retired,
+// otherwise the worker skips it and coverage never becomes complete.
+const revived = await pool.query(`UPDATE embedding_models SET status = 'building' WHERE key = $1 AND status = 'retired'`, [key]);
+if (revived.rowCount) console.log(`modello ${key} riportato da "retired" a "building"`);
 const cov = await indexCoverage(pool, key);
 console.log(`modello ${key}: ${cov.indexed}/${cov.assets} immagini indicizzate, ${cov.failed} fallite`);
 if (!values.activate) {
@@ -24,14 +28,14 @@ if (!values.activate) {
   console.log('reindicizzazione accodata: il worker calcola i vettori mancanti. Rilanciare con --activate a copertura completa.');
 } else {
   if (cov.pending > 0 && !values.force) {
-    console.error(`copertura incompleta (${cov.pending} immagini mancanti): usare --force per attivare comunque`);
+    console.error(`copertura incompleta (${cov.pending} immagini mancanti): rilanciare senza --activate per calcolare i vettori mancanti, poi riprovare (--force per attivare comunque)`);
     process.exit(1);
   }
   await withTx(async (tx) => {
     await tx.query(`UPDATE embedding_models SET status = 'retired' WHERE status = 'active' AND key <> $1`, [key]);
     await tx.query(`UPDATE embedding_models SET status = 'active', activated_at = now() WHERE key = $1`, [key]);
   });
-  console.log(`modello attivo: ${key}. Impostare VISION_MODEL=${spec.id} e riavviare API e worker.`);
+  console.log(`modello attivo: ${key}. La ricerca lo usa da subito (letto dal database); impostare VISION_MODEL=${spec.id} nel .env per il precaricamento all'avvio.`);
 }
 void modelKey;
 await pool.end();

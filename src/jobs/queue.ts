@@ -13,7 +13,9 @@ export type TaskName =
   | 'maintenance'
   | 'reindex_model'
   | 'feeds_tick'
-  | 'feed_fetch';
+  | 'feed_fetch'
+  | 'images_recheck'
+  | 'image_recheck';
 
 export interface EnqueueOptions {
   queueName?: string;
@@ -60,6 +62,13 @@ export function embedQueueFor(assetId: string): string {
 
 export async function enqueueImageFetch(db: Db, sourceId: string, url: string) {
   await enqueue(db, 'image_fetch', { sourceId }, { queueName: fetchQueueFor(url), jobKey: `image_fetch:${sourceId}`, maxAttempts: 6 });
+}
+
+/** Re-check of an already downloaded image: same per-host queues as downloads, after them (priority). */
+export async function enqueueImageRecheck(db: Db, sourceId: string, url: string, runId: string | null) {
+  await enqueue(db, 'image_recheck', { sourceId, runId }, {
+    queueName: fetchQueueFor(url), jobKey: `image_recheck:${sourceId}`, maxAttempts: 1, priority: 10,
+  });
 }
 
 export async function enqueueEmbed(db: Db, assetId: string, modelKey: string) {

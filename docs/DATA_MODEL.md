@@ -1,6 +1,6 @@
 # Modello dati
 
-Schema completo: `migrations/0001_init.sql`. Migrazioni forward-only, applicate da `src/db/migrate.ts` con advisory lock e checksum. La modifica di una migrazione già applicata viene rifiutata.
+Schema: `migrations/0001_init.sql` più le migrazioni successive (`0002_feeds_changes.sql`, `0003_image_recheck.sql`). Migrazioni forward-only, applicate da `src/db/migrate.ts` con advisory lock e checksum. La modifica di una migrazione già applicata viene rifiutata.
 
 ```mermaid
 erDiagram
@@ -41,7 +41,7 @@ erDiagram
 | `products` | Identità canonica, valori canonici calcolati, override manuali, riepilogo per la griglia (prezzo migliore, conteggi), testo di ricerca | `status` ∈ active/merged/archived; `merged ⇔ merged_into_id`; GIN su `search_tsv` e trigram |
 | `product_identifiers` | GTIN-14 canonici del prodotto (anche più di uno, dopo un'unione motivata) | **`UNIQUE(kind, value)`**: un GTIN appartiene a un solo prodotto |
 | `supplier_offers` | Riga del listino: SKU, barcode originale e stato, dati commerciali, stock, lead time, link, `source_row` originale, `row_hash`, `source_as_of` | **`UNIQUE(supplier_id, supplier_sku)`**; `(valid/restricted) ⇔ gtin NOT NULL`; `price ≥ 0`; `stock_quantity ≥ 0` o NULL (sconosciuto) |
-| `image_sources` | URL di immagine per fornitore, stato del download, tentativi, errore | `UNIQUE(supplier_id, url)`; `fetched ⇔ image_asset_id` |
+| `image_sources` | URL di immagine per fornitore, stato del download, tentativi, errore, validatori HTTP (ETag, Last-Modified) e data dell'ultimo ricontrollo | `UNIQUE(supplier_id, url)`; `fetched ⇔ image_asset_id` |
 | `offer_images` | Associazione offerta ↔ immagine con posizione (provenienza) | PK `(offer_id, image_source_id)` |
 | `image_assets` | Asset fisico: sha256, dHash, dimensioni, chiavi storage delle derivate | `sha256 UNIQUE` (dedupe byte-identici) |
 | `embedding_models` | Modelli registrati, stato (building/active/retired), soglie | **un solo `active`** (indice unico parziale) |
@@ -55,7 +55,7 @@ erDiagram
 | `photo_searches`, `search_feedback` | Ricerche per foto (immagine a scadenza), risultati, tempi, feedback | indice sulle scadenze |
 | `app_settings` | Impostazioni applicative chiave/valore | — |
 | `supplier_secrets` | URL e credenziali dei feed, cifrati (AES-256-GCM, AAD `fornitore:nome`) | PK `(supplier_id, name)`; mai esposti dall'API |
-| `offer_changes` | Variazioni per offerta a ogni import: prezzo (% se confrontabile), disponibilità, quantità, immagini, nuove/uscite/rientrate, EAN | `UNIQUE(import_run_id, offer_id, change_type)`; conservazione `CHANGE_HISTORY_DAYS` |
+| `offer_changes` | Variazioni per offerta a ogni import: prezzo (% se confrontabile), disponibilità, quantità, immagini (URL cambiati o contenuto sostituito allo stesso URL), nuove/uscite/rientrate, EAN | `UNIQUE(import_run_id, offer_id, change_type)`; conservazione `CHANGE_HISTORY_DAYS` |
 
 Le code di lavoro vivono nello schema `graphile_worker`, gestito dalla libreria.
 

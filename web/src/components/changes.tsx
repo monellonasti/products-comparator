@@ -8,11 +8,21 @@ export const CHANGE_TYPES: Array<{ key: ChangeType; label: string }> = [
   { key: 'availability', label: 'Disponibilità' },
   { key: 'stock', label: 'Quantità' },
   { key: 'images', label: 'Immagini' },
+  { key: 'image_replaced', label: 'Immagini sostituite' },
   { key: 'new_offer', label: 'Nuove offerte' },
   { key: 'removed', label: 'Uscite dal listino' },
   { key: 'reactivated', label: 'Tornate a listino' },
   { key: 'barcode', label: 'EAN cambiato' },
 ];
+
+function Thumb({ id, label }: { id?: string; label: string }) {
+  if (!id) return <span className="muted small">{label}</span>;
+  return (
+    <a href={imageUrl(id, 'display')} target="_blank" rel="noreferrer" title={label}>
+      <img src={imageUrl(id)} alt={label} width={44} height={44} style={{ objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid var(--border)', verticalAlign: 'middle' }} />
+    </a>
+  );
+}
 
 function priceText(v: any): string {
   if (!v?.price) return 'nessun prezzo';
@@ -72,6 +82,22 @@ export function ChangeValues({ c }: { c: OfferChange }) {
           {c.oldValue?.removed?.length ? ` · ${c.oldValue.removed.length} rimosse` : ''}
         </span>
       );
+    case 'image_replaced': {
+      const before: Array<{ url: string; assetId?: string }> = c.oldValue?.images ?? [];
+      const after: Array<{ url: string; assetId?: string }> = c.newValue?.images ?? [];
+      return (
+        <span className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+          {after.map((img, i) => (
+            <span key={img.url + i} className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
+              <Thumb id={before[i]?.assetId} label="immagine precedente" />
+              <span aria-hidden="true">→</span>
+              <Thumb id={img.assetId} label="nuova immagine" />
+            </span>
+          ))}
+          <span className="muted small">stesso indirizzo, contenuto cambiato</span>
+        </span>
+      );
+    }
     case 'new_offer':
       return <span>{priceText(c.newValue)} · {stockText({ status: c.newValue?.stockStatus, quantity: c.newValue?.stockQuantity })}</span>;
     case 'removed':

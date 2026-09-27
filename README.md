@@ -2,7 +2,7 @@
 
 Web app interna per gli acquisti: raccoglie i listini dei fornitori abituali in un **catalogo visivo unificato**. Le offerte con lo stesso EAN valido finiscono in un'unica scheda, mentre le offerte dei singoli fornitori restano distinte. La funzione centrale è la **ricerca con una foto**, caricata o scattata: trova il prodotto oppure alternative simili, e da lì si confrontano prezzi netti, confezioni, MOQ e disponibilità fino alla pagina del fornitore.
 
-> **Stato** (aggiornato al 2026-09-27): V1 funzionante in locale, con feed automatici e report delle variazioni, verificata con test automatici, un test end-to-end e benchmark **su dati sintetici**. **Non è production-ready**: mancano la calibrazione della ricerca visiva su foto reali, una prova di deploy e una prova di ripristino. Dettagli in [docs/PROGRESS.md](docs/PROGRESS.md).
+> **Stato** (aggiornato al 2026-09-28): V1 funzionante in locale, con feed automatici e report delle variazioni, verificata con test automatici, un test end-to-end e benchmark **su dati sintetici**. **Non è production-ready**: mancano la calibrazione della ricerca visiva su foto reali, una prova di deploy e una prova di ripristino. Dettagli in [docs/PROGRESS.md](docs/PROGRESS.md).
 
 ## Cosa fa
 
@@ -11,7 +11,7 @@ Web app interna per gli acquisti: raccoglie i listini dei fornitori abituali in 
 - **Ricerca testuale, EAN e SKU** (tollera i refusi; UPC-A ed EAN-13 equivalenti); **lettura barcode** live (BarcodeDetector o zxing-wasm locale) e inserimento manuale sempre disponibile.
 - **Scheda prodotto**: galleria, dati canonici con fornitore di provenienza, EAN e loro origine, offerte in tabella (su mobile come schede) con prezzo di listino, trattamento IVA, netto per pezzo, confezione, MOQ, scaglioni, stock, tempi, aggiornamento e link.
 - **Feed automatici**: per ogni fornitore si può impostare l'indirizzo del listino (CSV/XLSX, anche con utente/password o token, salvati cifrati) da scaricare **una volta al giorno** a un orario scelto (o ogni N ore); il file viene importato con la mappatura salvata.
-- **Report delle variazioni**: a ogni aggiornamento (feed o manuale) si registra cosa è cambiato: **prezzi** (con %), **disponibilità e quantità**, **immagini** aggiunte o tolte, offerte nuove, uscite o tornate a listino, EAN corretti. Si consulta in Importazioni › Variazioni (filtri, CSV), nel dettaglio import e nella scheda prodotto.
+- **Report delle variazioni**: a ogni aggiornamento (feed o manuale) si registra cosa è cambiato: **prezzi** (con %), **disponibilità e quantità**, **immagini** aggiunte, tolte o sostituite dal fornitore allo stesso indirizzo (con miniature prima/dopo), offerte nuove, uscite o tornate a listino, EAN corretti. Si consulta in Importazioni › Variazioni (filtri, CSV), nel dettaglio import e nella scheda prodotto.
 - **Fornitori e import CSV/XLSX**: wizard con lettura, mappatura salvabile, anteprima validata, snapshot/delta, stato e avanzamento, errori per riga (anche in CSV), ripresa dal checkpoint, immagini scaricate e indicizzate in background.
 - **Corrispondenze da verificare**: conflitti EAN e possibili doppioni; unione, separazione, override e relativo annullamento, tutto tracciato.
 - **Ruoli** amministratore e operatore, applicati lato server su ogni risorsa.
@@ -47,7 +47,9 @@ Poi, in due terminali:
 pnpm start
 pnpm worker
 ```
-App su http://127.0.0.1:3000. Per lo sviluppo del frontend con hot reload: `pnpm dev:web` (porta 5173, proxy `/api` verso 3000).
+App su http://127.0.0.1:3000.
+
+In sviluppo, al posto dei due terminali: `pnpm dev` avvia API (riavvio automatico alle modifiche), worker e frontend con hot reload su http://127.0.0.1:5173 (proxy `/api` verso 3000). Ctrl+C ferma tutto; se uno dei tre processi si chiude, vengono fermati anche gli altri. Il worker non si riavvia da solo: dopo modifiche ai job, rilanciare `pnpm dev`.
 
 Al primo avvio i pesi del modello (~372 MB, revisione fissata) vengono scaricati in `.models/`. Per scaricarli in anticipo: `node --env-file=.env src/scripts/model-download.ts`.
 
@@ -65,13 +67,13 @@ Per provare il feed e il report delle variazioni: nella pagina del fornitore *Al
 
 ## Test e benchmark
 
-| Comando | Cosa verifica | Esito al 2026-09-25 |
+| Comando | Cosa verifica | Esito al 2026-09-28 |
 |---|---|---|
 | `pnpm typecheck` | TypeScript server + web | pulito |
 | `pnpm test:unit` | GTIN, prezzi, stock, parser, SSRF, barcode, template, pianificazione feed, cifratura, variazioni | 62/62 |
-| `pnpm test` | unit + integrazione su Postgres reale (`TEST_DATABASE_URL`, **viene svuotato**), feed inclusi | 105/105 |
+| `pnpm test` | unit + integrazione su Postgres reale (`TEST_DATABASE_URL`, **viene svuotato**), feed e ricontrollo immagini inclusi | 109/109 |
 | `pnpm test:e2e` | flusso completo con HTTP, S3, download e modello reali | 6/6 |
-| `pnpm bench:visual -- --set fixtures/demo/queries.json [--crop]` | Recall@1/@5, falsi match, astensione, soglie suggerite | sintetico: R@5 92,9% a foto intera, 100% con ritaglio |
+| `pnpm bench:visual -- --set fixtures/demo/queries.json [--crop]` | Recall@1/@5, falsi match, astensione, soglie suggerite | sintetico, SigLIP 2: R@5 92,9% a foto intera, 100% con ritaglio (CLIP B/32: 78,6% / 100%) |
 | `pnpm bench:load -- --products 60000 --users 5` | latenza API e ricerca foto su 60.000 vettori (DB `comparator_bench` separato) | API p95 150 ms; foto p95 4,8 s lato server con 5 utenti |
 
 Risultati, hardware e limiti: [docs/BENCHMARK.md](docs/BENCHMARK.md).

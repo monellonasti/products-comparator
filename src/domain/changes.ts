@@ -5,13 +5,14 @@ import type { Tx } from '../db/pool.ts';
 import { toScaled, fromScaled, mulDiv, type Scaled } from '../lib/decimal.ts';
 import type { StockStatus } from './stock.ts';
 
-export type ChangeType = 'price' | 'availability' | 'stock' | 'images' | 'new_offer' | 'removed' | 'reactivated' | 'barcode';
+export type ChangeType = 'price' | 'availability' | 'stock' | 'images' | 'image_replaced' | 'new_offer' | 'removed' | 'reactivated' | 'barcode';
 
 export const CHANGE_LABELS: Record<ChangeType, string> = {
   price: 'Prezzo',
   availability: 'Disponibilità',
   stock: 'Quantità',
   images: 'Immagini',
+  image_replaced: 'Immagine sostituita',
   new_offer: 'Nuova offerta',
   removed: 'Uscita dal listino',
   reactivated: 'Tornata a listino',

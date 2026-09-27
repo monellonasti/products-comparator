@@ -61,6 +61,7 @@ Rischi residui noti: la lettura XLSX avviene interamente in memoria, per cui un 
 - Più traffico web: più istanze `api` dietro Caddy (sessioni in DB, nessuno stato locale tranne il modello caricato).
 - Indicizzazione più veloce: `EMBED_QUEUE_SHARDS` > 1 e/o più processi worker; `VISION_THREADS × VISION_CONCURRENCY ≤ vCPU`.
 - Più download: `IMAGE_FETCH_PER_HOST` (rispettando i fornitori) e `WORKER_CONCURRENCY`.
+- Ricontrollo delle immagini dopo ogni import (`IMAGE_RECHECK_HOURS`, default 20; `IMAGE_RECHECK_MAX_PER_RUN`, default 5.000): con server che rispondono 304 costa una richiesta leggera per immagine al giorno; con fornitori senza ETag/Last-Modified ogni controllo riscarica l'immagine, quindi per cataloghi grandi conviene alzare l'intervallo (per esempio 168 h). Le versioni precedenti delle immagini sostituite restano nello storage.
 - Oltre qualche centinaio di migliaia di immagini: rivedere `m`/`ef_construction` di HNSW, `maintenance_work_mem` e la memoria del DB.
 
 ## Costi stimati (indicativi, da verificare prima dell'acquisto)
