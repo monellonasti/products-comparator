@@ -76,7 +76,16 @@ I numeri indicano cosa guardare; la spiegazione è sotto ogni schermata.
   <img src="docs/screenshots/mobile-ricerca-foto.png" alt="Ricerca per foto su smartphone" width="260">
 </p>
 
-> **Stato** (aggiornato al 2026-09-28): V1 funzionante in locale, con feed automatici e report delle variazioni, verificata con test automatici, un test end-to-end e benchmark **su dati sintetici**. **Non è production-ready**: mancano la calibrazione della ricerca visiva su foto reali, una prova di deploy e una prova di ripristino. Dettagli in [docs/PROGRESS.md](docs/PROGRESS.md).
+## Stato e prossimi passi
+
+**La V1 funziona in locale** (aggiornato al 2026-09-28). Catalogo, ricerca per foto, feed automatici e report delle variazioni sono verificati con test automatici (unità, integrazione ed end-to-end) e con benchmark su dati sintetici. Prima dell'uso in produzione mancano quattro passi:
+
+1. **Dati veri.** Importare 1-2 listini reali dei fornitori e verificare con chi compra mappatura, IVA e confezioni.
+2. **Taratura della ricerca per foto.** Serve un centinaio di foto reali di magazzino, ciascuna associata al prodotto giusto. Servono a misurare la qualità del riconoscimento e a fissare le soglie, oggi provvisorie.
+3. **Installazione su server.** Scegliere hosting, dominio e budget, poi preparare un ambiente di prova con monitoraggio, backup e una prova di ripristino.
+4. **Prova con gli operatori.** Usare foto e codice a barre da smartphone, in magazzino.
+
+Dettagli in [docs/PROGRESS.md](docs/PROGRESS.md).
 
 ## Cosa fa
 
