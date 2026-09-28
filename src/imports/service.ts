@@ -99,7 +99,16 @@ export async function createUploadRun(input: {
       [runId, input.supplierId, profile?.id ?? null, input.fileName.slice(0, 250), kind, fileSha, input.bytes.length, fileKey, JSON.stringify(parseOptions), input.userId, input.sourceKind ?? 'upload'],
     )
   ).rows[0];
-  const inspected = await inspect(run, input.bytes, parseOptions);
+  let inspected: Awaited<ReturnType<typeof inspect>>;
+  try {
+    inspected = await inspect(run, input.bytes, parseOptions);
+  } catch (err) {
+    // Unreadable or refused file (e.g. an XLSX "zip bomb"): no draft import left behind and the bytes are
+    // not kept in storage; the cancelled run records why.
+    await pool.query(`UPDATE import_runs SET status = 'cancelled', finished_at = now(), error = $2 WHERE id = $1`, [runId, String((err as Error).message).slice(0, 2000)]);
+    await storage().delete(fileKey).catch(() => {});
+    throw err;
+  }
   const profileMappingUsable = profile && mappedColumns(profile.mapping).every((c) => inspected.headers.includes(c));
   return {
     ...inspected,

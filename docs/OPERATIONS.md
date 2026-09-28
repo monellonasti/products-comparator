@@ -54,7 +54,7 @@ Le immagini sono content-addressed: dopo il ripristino di DB e bucket basta veri
 - [ ] `SECRETS_KEY` generata (`openssl rand -base64 32`), diversa da sviluppo, salvata con i backup. Rotazione: impostare la nuova chiave e reinserire le credenziali dei feed.
 - [ ] Aggiornamenti di sicurezza di immagini base e dipendenze (`pnpm audit`).
 
-Rischi residui noti: la lettura XLSX avviene interamente in memoria, per cui un file compresso "bomba" di pochi MB potrebbe usare molta RAM (mitigato dal limite di 60 MB sull'upload; da considerare un limite di memoria per il container). I rate limit sono in memoria e valgono per singola istanza.
+Rischi residui noti: la lettura XLSX avviene interamente in memoria e costa circa 15 MB di RAM per MB decompresso (misurato: listino da 100.000 righe, 8 MB di XLSX, ~1,3 GB di picco). I file "bomba" e quelli oltre `XLSX_MAX_UNCOMPRESSED_BYTES` (default 100 MB, ~1,5 GB di picco) vengono rifiutati prima della lettura, e si legge un XLSX alla volta per processo (D-021). Resta consigliato un limite di memoria per i container di API e worker, dimensionato su quel picco più il modello visivo. I rate limit sono in memoria e valgono per singola istanza.
 
 ## Scalabilità
 

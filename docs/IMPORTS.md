@@ -18,6 +18,7 @@ Il file originale resta nello storage (`imports/<run>/<sha256>`) per la tracciab
 ## Lettura dei file (src/imports/parsers.ts)
 
 - Tipo riconosciuto dal contenuto (firma ZIP per XLSX), non dall'estensione. Il vecchio `.xls` binario viene rifiutato con un messaggio esplicito.
+- XLSX (`src/imports/xlsx-guard.ts`): prima di aprirlo si controlla l'archivio senza fidarsi delle intestazioni. Al massimo 5.000 parti; contenuto decompresso entro `XLSX_MAX_UNCOMPRESSED_BYTES` (default 100 MB, circa 110.000 righe da 15 colonne); ogni parte viene davvero decompressa con un tetto pari alla dimensione dichiarata, per scoprire le dimensioni falsificate; niente DTD o entità nelle parti XML; archivi cifrati, divisi in più parti o con compressione diversa da deflate rifiutati. Un file rifiutato dà un errore esplicito nel wizard (o fa fallire il feed) e non lascia né bozze d'import né il file nello storage. Si legge un XLSX alla volta per processo. Per listini più grandi: CSV.
 - Codifica: BOM UTF-8/UTF-16, poi UTF-8 rigoroso, altrimenti Windows-1252 (tipica di Excel italiano). Si può forzare dal wizard.
 - Separatore: rilevato per coerenza sulle prime 25 righe (`;` `,` tab `|`), modificabile.
 - Separatore decimale dichiarato (`,` o `.`). Un valore con il separatore opposto (`12.50` con `,` configurata) è un errore esplicito, mai un'interpretazione a caso.

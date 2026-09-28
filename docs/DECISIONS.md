@@ -94,3 +94,11 @@ Ogni voce: contesto → decisione → conseguenze. Le date sono assolute.
 - Script Node (`src/scripts/dev.ts`, nessuna dipendenza in più) che avvia API con `--watch`, worker e Vite, con output prefissato. Il worker non ha `--watch`: un riavvio a metà job lascerebbe il job bloccato fino al timeout del lock di graphile-worker.
 - Su Windows `kill()` termina solo il processo figlio diretto e `node --watch` lascerebbe vivo il processo dell'API: si usa `taskkill /T` per chiudere l'intero albero.
 
+## D-021 · 2026-09-28 · Protezione dagli XLSX "bomba"
+- **Problema**: ExcelJS decomprime ogni parte dell'XLSX interamente in memoria e costruisce tutte le celle. Misurato su listini realistici da 15 colonne: circa 15 MB di RAM per MB decompresso (10.000 righe ~140 MB, 50.000 ~520 MB, 100.000 ~1,3 GB). Un file costruito ad arte, entro i 60 MB dell'upload, poteva esaurire la memoria dell'API già al caricamento nel wizard. La libreria controlla la dimensione dichiarata solo **dopo** aver decompresso tutto.
+- **Decisione**: ispezione preventiva dell'archivio (`src/imports/xlsx-guard.ts`, nessuna dipendenza in più): directory centrale letta con controlli sui limiti (ZIP64 compreso), al massimo 5.000 parti, contenuto decompresso dichiarato entro `XLSX_MAX_UNCOMPRESSED_BYTES` (default 100 MB, circa 1,5 GB di picco), e ogni parte decompressa davvero con un tetto pari alla dimensione dichiarata, così una dimensione falsa viene scoperta senza allocare di più. Rifiutate le DTD nelle parti XML: ExcelJS già non espande le entità, ma il controllo non dipende dalla versione della libreria.
+- **Una lettura alla volta**: in ogni processo si legge un solo XLSX alla volta, così due upload contemporanei non sommano i picchi.
+- **Costo**: il controllo decomprime una volta in più ogni parte, circa il 5% del tempo di lettura (0,2 s su un file da 100.000 righe).
+- **Upload rifiutati**: l'import viene annullato con il motivo e il file cancellato dallo storage, invece di restare come bozza.
+- **Alternativa scartata per ora**: il lettore a flusso di ExcelJS (`WorkbookReader`) ridurrebbe la memoria anche per i file legittimi molto grandi, ma cambia il modo di leggere celle e stringhe condivise e va validato su listini reali. Per i listini più grandi del limite resta consigliato il CSV.
+

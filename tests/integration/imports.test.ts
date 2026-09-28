@@ -1,7 +1,10 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { pool } from '../../src/db/pool.ts';
 import { runImport } from '../../src/imports/pipeline.ts';
+import { createUploadRun } from '../../src/imports/service.ts';
+import { storage } from '../../src/storage/index.ts';
 import { createSupplier, importCsv, resetDatabase, row } from '../helpers.ts';
+import { buildZip, xlsxParts } from '../zip-builder.ts';
 
 const EAN_A = '4006381333931';
 const EAN_B = '8710103917250';
@@ -183,6 +186,19 @@ describe('snapshots', () => {
     expect((await pool.query(`SELECT last_import_status FROM suppliers WHERE id = $1`, [s1.id])).rows[0].last_import_status).toBe('failed');
     expect(await count(`SELECT count(*)::int n FROM supplier_offers WHERE active`)).toBe(3);
     expect((await pool.query(`SELECT price::text FROM supplier_offers WHERE supplier_sku = 'S1'`)).rows[0].price).toBe('10.0000');
+  });
+});
+
+describe('refused files', () => {
+  it('an XLSX "zip bomb" is refused at upload: cancelled run with the reason, file removed from storage', async () => {
+    const s = await createSupplier('alfa');
+    const parts = xlsxParts();
+    parts[4] = { ...parts[4], data: `<worksheet>${' '.repeat(20_000_000)}</worksheet>`, declaredSize: 500 }; // forged size
+    await expect(createUploadRun({ supplierId: s.id, fileName: 'bomba.xlsx', bytes: buildZip(parts), userId: null })).rejects.toThrow(/XLSX rifiutato/);
+    const run = (await pool.query(`SELECT status, error, file_key FROM import_runs WHERE supplier_id = $1`, [s.id])).rows[0];
+    expect(run.status).toBe('cancelled');
+    expect(run.error).toMatch(/zip bomb/);
+    expect(await storage().exists(run.file_key)).toBe(false);
   });
 });
 

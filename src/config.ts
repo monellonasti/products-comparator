@@ -54,6 +54,9 @@ const schema = z.object({
   FEED_DEFAULT_TIMEZONE: z.string().default('Europe/Rome'),
   CHANGE_HISTORY_DAYS: z.coerce.number().int().positive().default(365),
   IMPORT_MAX_ROWS: z.coerce.number().int().positive().default(250_000),
+  // XLSX are read fully in memory (measured ~15 MB of RAM per uncompressed MB): larger or "zip bomb" files
+  // are refused before decompression. 100 MB ~ 110k rows x 15 columns, ~1.5 GB peak while reading.
+  XLSX_MAX_UNCOMPRESSED_BYTES: z.coerce.number().int().positive().default(100_000_000),
 
   METRICS_TOKEN: z.string().optional(),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),

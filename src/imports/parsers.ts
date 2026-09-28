@@ -1,9 +1,15 @@
 // CSV/XLSX readers. Output rows are plain objects keyed by (de-duplicated) header, with string/number
 // cell values. Formulas are never evaluated: XLSX cached results are used and flagged.
+// XLSX are untrusted ZIP containers read fully in memory: they are inspected first (xlsx-guard.ts) and
+// read one at a time per process, so peak memory stays bounded by XLSX_MAX_UNCOMPRESSED_BYTES.
 import { parse as parseCsvSync } from 'csv-parse/sync';
 import iconv from 'iconv-lite';
 import ExcelJS from 'exceljs';
 import type { ParseOptions } from './fields.ts';
+import { config } from '../config.ts';
+import { inspectXlsxContainer, ZipLimitError } from './xlsx-guard.ts';
+
+export const XLSX_MAX_PARTS = 5000;
 
 export type CellValue = string | number | null;
 
@@ -155,7 +161,26 @@ export function parseCsv(bytes: Buffer, opts: ParseOptions, maxRows?: number): P
   };
 }
 
-export async function parseXlsx(bytes: Buffer, opts: ParseOptions, maxRows?: number): Promise<ParsedFile> {
+let xlsxQueue: Promise<unknown> = Promise.resolve();
+
+/** At most one XLSX read at a time in this process: each one can take ~15x its uncompressed size in RAM. */
+function oneAtATime<T>(fn: () => Promise<T>): Promise<T> {
+  const run = xlsxQueue.then(fn, fn);
+  xlsxQueue = run.catch(() => {});
+  return run;
+}
+
+export function parseXlsx(bytes: Buffer, opts: ParseOptions, maxRows?: number): Promise<ParsedFile> {
+  return oneAtATime(() => parseXlsxNow(bytes, opts, maxRows));
+}
+
+async function parseXlsxNow(bytes: Buffer, opts: ParseOptions, maxRows?: number): Promise<ParsedFile> {
+  try {
+    inspectXlsxContainer(bytes, { maxEntries: XLSX_MAX_PARTS, maxUncompressedBytes: config.XLSX_MAX_UNCOMPRESSED_BYTES });
+  } catch (err) {
+    if (err instanceof ZipLimitError) throw new ImportFileError(`XLSX rifiutato: ${err.message}`);
+    throw err;
+  }
   const wb = new ExcelJS.Workbook();
   try {
     await wb.xlsx.load(bytes as any);
