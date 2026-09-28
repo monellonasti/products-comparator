@@ -1,6 +1,24 @@
 # Catalogo fornitori B2B con ricerca per foto (V1)
 
-Web app interna per gli acquisti: raccoglie i listini dei fornitori abituali in un **catalogo visivo unificato**. Le offerte con lo stesso EAN valido finiscono in un'unica scheda, mentre le offerte dei singoli fornitori restano distinte. La funzione centrale è la **ricerca con una foto**, caricata o scattata: trova il prodotto oppure alternative simili, e da lì si confrontano prezzi netti, confezioni, MOQ e disponibilità fino alla pagina del fornitore.
+Web app per l'ufficio acquisti di un rivenditore che si rifornisce da molti fornitori. Riunisce i loro listini in un unico catalogo e, per ogni prodotto, mostra **chi lo vende alle condizioni migliori**, anche partendo solo da una foto.
+
+## Il problema
+
+Chi acquista da molti fornitori lavora in un mercato dove i prezzi non sono mai allineati:
+
+- **Lo stesso prodotto costa in modo diverso da fornitore a fornitore.** Lo stesso articolo, con lo stesso EAN, compare in più listini con prezzi, confezioni, IVA inclusa o esclusa, minimi d'ordine e disponibilità diversi. Confrontarli a mano, un file alla volta, è lento e porta a errori: un prezzo IVA inclusa sembra più alto di uno netto, una confezione da 6 sembra più cara del pezzo singolo.
+- **Prodotti simili di produttori diversi hanno prezzi molto diversi.** Articoli equivalenti di OEM e marche diverse non condividono l'EAN, quindi nessuna ricerca per codice li mette uno accanto all'altro, e l'alternativa più conveniente resta invisibile.
+- **I listini cambiano di continuo.** Prezzi e giacenze si aggiornano ogni giorno, in formati diversi (CSV, Excel, colonne con nomi diversi), e le variazioni passano inosservate.
+- **Spesso si ha in mano il prodotto, non il suo codice.** In magazzino, o davanti a un campione, manca il codice con cui ciascun fornitore lo identifica nel proprio listino.
+
+## Come lo risolve
+
+- **Un catalogo unico.** I listini, caricati a mano o scaricati ogni giorno da un feed, vengono normalizzati. Le offerte con lo stesso EAN valido confluiscono nella stessa scheda prodotto, restando distinte per fornitore.
+- **Prezzi confrontabili davvero.** Il confronto usa il prezzo netto per pezzo, IVA esclusa, nella stessa valuta. Le offerte non confrontabili vengono segnalate invece di essere mescolate, e un prezzo più basso ma esaurito è mostrato a parte. La scheda affianca tutte le offerte con confezione, MOQ, scaglioni, stock, tempi di consegna e link al fornitore.
+- **Dalla foto al fornitore migliore.** Da una foto, scattata o caricata, l'app trova lo stesso prodotto oppure **prodotti simili di altri produttori**, ciascuno con il miglior prezzo confrontabile e il numero di fornitori che lo hanno disponibile. Legge anche il codice a barre quando è visibile. Per confrontare un'intera tipologia di prodotto, il catalogo si filtra per categoria e si ordina per prezzo.
+- **Variazioni sotto controllo.** A ogni aggiornamento dei listini si registra cosa è cambiato: prezzi (con la %), disponibilità, quantità, immagini, prodotti nuovi o usciti.
+
+Esempio: un operatore fotografa un flacone in magazzino. L'app riconosce il prodotto, mostra quali fornitori lo vendono e a che prezzo netto per pezzo, e propone gli articoli equivalenti di altri produttori, ciascuno con il suo prezzo migliore. Il formato (per esempio 50 o 100 ml) è riportato nella scheda: il prezzo viene confrontato per pezzo, non per unità di misura.
 
 > **Stato** (aggiornato al 2026-09-28): V1 funzionante in locale, con feed automatici e report delle variazioni, verificata con test automatici, un test end-to-end e benchmark **su dati sintetici**. **Non è production-ready**: mancano la calibrazione della ricerca visiva su foto reali, una prova di deploy e una prova di ripristino. Dettagli in [docs/PROGRESS.md](docs/PROGRESS.md).
 
