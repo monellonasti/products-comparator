@@ -57,9 +57,9 @@ if (existing < N) {
   );
   let t = Date.now();
   await pool.query(
-    `WITH w AS (SELECT ARRAY['Gel','Crema','Olio','Vibratore','Anello','Kit','Scrub','Balsamo','Wave','Orbit','Petal','Silk','Classic','Ultra','Deluxe','Bullet','Wand','Candela','Spray','Lozione'] AS n,
+    `WITH w AS (SELECT ARRAY['Shampoo','Crema','Olio','Balsamo','Gel','Set','Scrub','Lozione','Spazzolino','Asciugacapelli','Pro','Compact','Classic','Ultra','Deluxe','Travel','Sonico','Candela','Spray','Maschera'] AS n,
                        ARRAY['Rosa','Nero','Blu','Viola','Oro','Verde','Rosso','Bianco'] AS c,
-                       ARRAY['Velvora','Nuvia','Lumen Care','Aurum','Sensa','Moira','Kappa','Orbix','Silva','Tessa','Noma','Riva'] AS b)
+                       ARRAY['Quellora','Brivanto','Solvetta','Tessavo','Olvari','Marvessa','Kivento','Tervalo','Silva','Tessa','Noma','Riva'] AS b)
      INSERT INTO products (id, title, brand, status)
      SELECT md5('bench-product-' || i)::uuid, w.n[1 + i % 20] || ' ' || w.n[1 + (i / 20) % 20] || ' ' || w.c[1 + i % 8] || ' ' || (50 + (i % 7) * 25) || ' ml',
             w.b[1 + i % 12], 'active'

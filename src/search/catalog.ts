@@ -85,7 +85,7 @@ export async function listProducts(query: CatalogQuery): Promise<{ items: Produc
       const folded = p(foldText(q));
       const tsParam = tsq ? p(tsq) : null;
       const tsCond = tsParam ? `p.search_tsv @@ to_tsquery('simple', ${tsParam})` : 'false';
-      // "%>" (word similarity, indexed expression on the left) tolerates typos: "vibratre" -> "vibratore".
+      // "%>" (word similarity, indexed expression on the left) tolerates typos: "asciugacapeli" -> "asciugacapelli".
       where.push(`(p.id = ANY(${k}::uuid[]) OR ${tsCond} OR f_unaccent(lower(p.search_text)) %> ${folded})`);
       matchedBy = `CASE WHEN p.id = ANY(${k}::uuid[]) THEN 'sku' ELSE 'text' END`;
       rank = `(CASE WHEN p.id = ANY(${k}::uuid[]) THEN 10 ELSE 0 END) + ${tsParam ? `ts_rank(p.search_tsv, to_tsquery('simple', ${tsParam}))` : '0'}

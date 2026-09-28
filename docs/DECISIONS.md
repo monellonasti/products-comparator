@@ -102,3 +102,9 @@ Ogni voce: contesto → decisione → conseguenze. Le date sono assolute.
 - **Upload rifiutati**: l'import viene annullato con il motivo e il file cancellato dallo storage, invece di restare come bozza.
 - **Alternativa scartata per ora**: il lettore a flusso di ExcelJS (`WorkbookReader`) ridurrebbe la memoria anche per i file legittimi molto grandi, ma cambia il modo di leggere celle e stringhe condivise e va validato su listini reali. Per i listini più grandi del limite resta consigliato il CSV.
 
+## D-022 · 2026-09-28 · Demo neutra con prezzi realistici e gemelli OEM
+- **Contesto**: il progetto viene presentato come portfolio. La demo precedente usava il catalogo del settore reale; negli screenshot pubblici l'autore preferisce un catalogo neutro. Il settore reale resta citabile a parole.
+- **Decisione**: catalogo sintetico multi-marca e multi-categoria (cura capelli, cura del corpo, igiene, piccoli elettrodomestici, accessori) con la stessa struttura di prima, così i test che usano le foto demo restano validi. Marchi inventati scelti tra parole poco comuni.
+- **Più realismo**: ogni prodotto ha un prezzo di riferimento e ogni fornitore applica il proprio scostamento (prima i prezzi erano casuali e indipendenti, fino a 10 volte di differenza per lo stesso articolo). Tre articoli esistono anche come gemelli OEM a marchio del grossista ("Beta Essentials", "Linea Gamma"), con EAN diverso e prezzo più basso: è il caso che la ricerca per foto deve far emergere.
+- **Onestà**: sui dati sintetici i gemelli compaiono tra i "simili" ma non in cima. Il benchmark è stato rifatto sul nuovo set e i numeri precedenti restano documentati come riferiti al set vecchio.
+

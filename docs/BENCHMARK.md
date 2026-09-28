@@ -8,6 +8,23 @@ Laptop Snapdragon X Elite X1E80100 (12 core Oryon, ARM64), 15,6 GB di RAM, Windo
 
 ## 1. Qualità visiva sul set sintetico (`pnpm bench:visual`)
 
+**Aggiornamento 2026-09-28: demo neutra.** La demo è stata rigenerata con un catalogo neutro (cura della persona, igiene, piccoli elettrodomestici, accessori), prezzi realistici tra fornitori e 3 gemelli OEM a marchio del grossista. Stessa struttura: 19 foto sintetiche, 14 a catalogo (2 con barcode leggibile) e 5 fuori catalogo, 47 immagini indicizzate, leakage 0. Report: `docs/benchmarks/2026-09-28-visual-synthetic-neutral-*.json`.
+
+| Metrica (SigLIP 2) | Foto intera | Con ritaglio |
+|---|---|---|
+| Recall@1 (EAN esatto) | 71,4% | 78,6% |
+| Recall@5 (EAN esatto) | 92,9% | 100% |
+| Falsi match sui fuori catalogo (score ≥ 0,78) | 0/5 | 0/5 |
+| Astensione completa sui fuori catalogo (score < 0,55) | 0/5 | 0/5 |
+| Barcode letti / conferme corrette | 2 / 1 | 2 / 1 |
+| Score top-1 corretti (min/med/max) | 0,703 / 0,777 / 0,869 | 0,801 / 0,863 / 0,914 |
+| Score top-1 negativi (min/med/max) | 0,627 / 0,677 / 0,700 | 0,550 / 0,671 / 0,772 |
+| Inferenza p50/p95 | 811 / 966 ms | 812 / 961 ms |
+
+Gemelli OEM (stesso prodotto con marchio ed EAN del grossista): nella ricerca con la foto dell'originale compaiono tra i "Prodotti simili" nelle posizioni 5, 7 e 11 su 24, non in cima. Il modello pesa anche il marchio stampato sul prodotto: da verificare sulle foto reali.
+
+Le tabelle che seguono si riferiscono al set sintetico precedente (2026-09-25), con un catalogo del settore reale.
+
 Catalogo demo: 36 prodotti, 45 immagini indicizzate (SigLIP 2, `siglip2-base-p16-224@ba1f3b0/pp1`). Query: 19 foto sintetiche "tipo smartphone" (sfondo texture, rotazione fino a ±18°, prospettiva, sfocatura, JPEG 62-78), di cui 14 di prodotti a catalogo (2 primi piani con barcode leggibile) e 5 di oggetti assenti. Leakage 0: nessuna query è byte-identica a un'immagine indicizzata.
 
 | Metrica | Foto intera | Con ritaglio del prodotto |
@@ -101,6 +118,6 @@ Login → creazione di 2 fornitori → import CSV (`;`, decimali con virgola) e 
    - Recall@1/@5 per identità nota (obiettivo proposto: **Recall@5 ≥ 90%**, da validare e non garantito);
    - falsi match e astensione sugli assenti;
    - **qualità delle alternative giudicata da un operatore** (per ogni query assente: le alternative "simili" sono utili sì/no), da cui si ricava la soglia "simili";
-   - risultati per categoria (lubrificanti, dispositivi, confezioni…) e limiti osservati.
+   - risultati per categoria (flaconi, dispositivi, confezioni…) e limiti osservati.
 6. **Calibrazione**: impostare le soglie da Impostazioni › Stato del sistema e segnarle come calibrate, annotando set e data.
 7. **Carico reale**: `pnpm bench:load` sul server di produzione (o su una macchina equivalente), dichiarando l'hardware.

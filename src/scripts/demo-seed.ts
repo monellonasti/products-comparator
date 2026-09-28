@@ -63,7 +63,7 @@ const alfa = await supplier('alfa', 'Alfa Distribuzione (demo)', 10, 'net', null
 const beta = await supplier('beta', 'Beta Wholesale (demo)', 20, 'net', null);
 const gamma = await supplier('gamma', 'Gamma Import (demo)', 30, 'gross', '22');
 
-const categories = ['Vibratori', 'Lubrificanti', 'Preservativi', 'Cosmetici', 'Accessori', 'Kit regalo'];
+const categories = ['Cura capelli', 'Cura del corpo', 'Igiene', 'Piccoli elettrodomestici', 'Accessori capelli', 'Set regalo'];
 const catIds = new Map<string, string>();
 for (const name of categories) {
   const row = (
@@ -107,8 +107,9 @@ for (const step of plan) {
 
 // Map raw supplier categories to the normalised ones.
 const rules: Array<[RegExp, string]> = [
-  [/vibrat|toys/i, 'Vibratori'], [/lubrif|lubes/i, 'Lubrificanti'], [/preserv|condom/i, 'Preservativi'], [/cosmet|wellness/i, 'Cosmetici'],
-  [/accessor/i, 'Accessori'], [/^kit/i, 'Kit regalo'],
+  // Order matters: "Accessori capelli" must not fall into "Cura capelli".
+  [/accessori|accessories/i, 'Accessori capelli'], [/elettrodomestici|appliances/i, 'Piccoli elettrodomestici'], [/capelli|hair care/i, 'Cura capelli'],
+  [/corpo|body/i, 'Cura del corpo'], [/igiene|hygiene/i, 'Igiene'], [/^set/i, 'Set regalo'],
 ];
 const raws = (await pool.query(`SELECT supplier_id, raw_category FROM category_mappings WHERE category_id IS NULL`)).rows;
 for (const r of raws) {

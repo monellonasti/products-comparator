@@ -1,10 +1,11 @@
 sku,ean,title,brand,price_gross,vat,stock,image
-GI500,8009900000013,"Gel Idratante – Lumen Care, 50 ml",Lumen Care,51.03,22,disponibile,http://127.0.0.1:4010/alfa-p001.jpg
-GI501,8009900000051,"Silk Gel – Moira, 50 ml",Moira,19.31,22,38,http://127.0.0.1:4010/alfa-p003.jpg
-GI502,8009900000099,"Crema Stimolante – Moira, 30 ml",Moira,6.97,22,13,http://127.0.0.1:4010/alfa-p005.jpg
-GI503,8009900000136,"Classic – Moira, 6 pz",Moira,36.71,22,disponibile,http://127.0.0.1:4010/alfa-p009.jpg
-GI504,8009900000174,"Wave – Sensa, Standard",Sensa,53.68,22,17,http://127.0.0.1:4010/alfa-p013.jpg
-GI505,,"Petal – Aurum, Standard",Aurum,15.25,22,11,http://127.0.0.1:4010/alfa-p017.jpg
-GI506,8009900000259,"Slim Classic – Aurum, Standard",Aurum,12.60,22,disponibile,http://127.0.0.1:4010/alfa-p021.jpg
-GI507,8009900000297,"Wand Mini – Lumen Care, Standard",Lumen Care,17.60,22,2,http://127.0.0.1:4010/alfa-p025.jpg
-GI508,8009900000334,"Anello Duo – Velvora, Standard",Velvora,9.41,22,28,http://127.0.0.1:4010/alfa-p029.jpg
+GI500,8009900000013,"Shampoo Nutriente – Solvetta, 250 ml",Solvetta,11.22,22,disponibile,http://127.0.0.1:4010/alfa-p001.jpg
+GI501,8009900000051,"Balsamo Lisciante – Marvessa, 250 ml",Marvessa,12.62,22,4,http://127.0.0.1:4010/alfa-p003.jpg
+GI502,8009900000099,"Crema Mani – Solvetta, 75 ml",Solvetta,6.32,22,38,http://127.0.0.1:4010/alfa-p005.jpg
+GI503,8009900000136,"Salviette Struccanti – Solvetta, 20 pz",Solvetta,8.33,22,disponibile,http://127.0.0.1:4010/alfa-p009.jpg
+GI504,8009900000174,"Asciugacapelli Pro – Olvari, Standard",Olvari,52.95,22,9,http://127.0.0.1:4010/alfa-p013.jpg
+GI505,,"Asciugacapelli Ionico – Olvari, Standard",Olvari,64.77,22,29,http://127.0.0.1:4010/alfa-p017.jpg
+GI506,8009900000259,"Spazzolino Sonico – Marvessa, Standard",Marvessa,27.44,22,disponibile,http://127.0.0.1:4010/alfa-p021.jpg
+GI507,8009900000297,"Spazzolino Junior – Solvetta, Standard",Solvetta,41.41,22,4,http://127.0.0.1:4010/alfa-p025.jpg
+GI508,8009900000334,"Elastici Duo – Marvessa, Standard",Marvessa,3.81,22,39,http://127.0.0.1:4010/alfa-p029.jpg
+GI-OWN-1,8009900000365,"Spazzolino Elettrico Sonic – Linea Gamma, verde",Linea Gamma,19.42,22,25,http://127.0.0.1:4010/gamma-t03.jpg

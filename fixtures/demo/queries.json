@@ -10,12 +10,12 @@
         "8009900000020"
       ],
       "kind": "in_catalog",
-      "note": "Lumen Care Gel Idratante Blu",
+      "note": "Solvetta Shampoo Nutriente Blu",
       "bbox": {
-        "x": 0.1689453125,
-        "y": 0.15164835164835164,
-        "width": 0.732421875,
-        "height": 0.536996336996337
+        "x": 0.0498046875,
+        "y": 0.14285714285714285,
+        "width": 0.8388671875,
+        "height": 0.5985347985347985
       },
       "hasBarcode": false
     },
@@ -26,13 +26,16 @@
         "8009900000051",
         "8009900000068"
       ],
+      "oemTwinEans": [
+        "8009900000358"
+      ],
       "kind": "in_catalog",
-      "note": "Moira Silk Gel Fucsia",
+      "note": "Marvessa Balsamo Lisciante Nero (esiste anche con marchio del grossista: prodotto OEM identico)",
       "bbox": {
-        "x": 0.0947265625,
-        "y": 0.263003663003663,
-        "width": 0.7490234375,
-        "height": 0.5443223443223443
+        "x": 0.197265625,
+        "y": 0.14725274725274726,
+        "width": 0.744140625,
+        "height": 0.5677655677655677
       },
       "hasBarcode": false
     },
@@ -43,12 +46,12 @@
         "8009900000099"
       ],
       "kind": "in_catalog",
-      "note": "Moira Crema Stimolante Rosa cipria",
+      "note": "Solvetta Crema Mani Rosa cipria",
       "bbox": {
-        "x": 0.1142578125,
-        "y": 0.2644688644688645,
-        "width": 0.701171875,
-        "height": 0.5157509157509158
+        "x": 0.173828125,
+        "y": 0.20073260073260074,
+        "width": 0.6767578125,
+        "height": 0.5062271062271062
       },
       "hasBarcode": false
     },
@@ -59,12 +62,12 @@
         "8009900000112"
       ],
       "kind": "in_catalog",
-      "note": "Lumen Care Gel Calore Rosa cipria",
+      "note": "Brivanto Gel Doccia Agrumi Nero",
       "bbox": {
-        "x": 0.087890625,
-        "y": 0.23663003663003662,
-        "width": 0.6953125,
-        "height": 0.5098901098901099
+        "x": 0.0703125,
+        "y": 0.3142857142857143,
+        "width": 0.755859375,
+        "height": 0.5413919413919414
       },
       "hasBarcode": false
     },
@@ -75,12 +78,12 @@
         "8009900000136"
       ],
       "kind": "in_catalog_barcode_closeup",
-      "note": "Moira Classic Fucsia (primo piano con barcode leggibile)",
+      "note": "Solvetta Salviette Struccanti Oro (primo piano con barcode leggibile)",
       "bbox": {
-        "x": 0.0224609375,
-        "y": 0.1523809523809524,
-        "width": 0.8466796875,
-        "height": 0.6344322344322344
+        "x": 0.056640625,
+        "y": 0.11721611721611722,
+        "width": 0.90625,
+        "height": 0.6798534798534799
       },
       "hasBarcode": true
     },
@@ -91,12 +94,12 @@
         "8009900000150"
       ],
       "kind": "in_catalog_barcode_closeup",
-      "note": "Aurum Ritardanti Oro (primo piano con barcode leggibile)",
+      "note": "Brivanto Testine Spazzolino Nero (primo piano con barcode leggibile)",
       "bbox": {
-        "x": 0.0732421875,
-        "y": 0.08717948717948718,
-        "width": 0.9267578125,
-        "height": 0.693040293040293
+        "x": 0.1123046875,
+        "y": 0.22271062271062272,
+        "width": 0.8662109375,
+        "height": 0.6410256410256411
       },
       "hasBarcode": true
     },
@@ -106,13 +109,16 @@
       "sameImageEans": [
         "8009900000174"
       ],
+      "oemTwinEans": [
+        "8009900000341"
+      ],
       "kind": "in_catalog",
-      "note": "Sensa Wave Nero",
+      "note": "Olvari Asciugacapelli Pro Verde (esiste anche con marchio del grossista: prodotto OEM identico)",
       "bbox": {
-        "x": 0.1162109375,
-        "y": 0.14212454212454212,
-        "width": 0.8798828125,
-        "height": 0.6476190476190476
+        "x": 0.1416015625,
+        "y": 0.2549450549450549,
+        "width": 0.685546875,
+        "height": 0.5113553113553113
       },
       "hasBarcode": false
     },
@@ -123,12 +129,12 @@
         "8009900000198"
       ],
       "kind": "in_catalog",
-      "note": "Moira Orbit Fucsia",
+      "note": "Tessavo Asciugacapelli Compact Fucsia",
       "bbox": {
-        "x": 0.1240234375,
-        "y": 0.315018315018315,
-        "width": 0.720703125,
-        "height": 0.5238095238095238
+        "x": 0.1865234375,
+        "y": 0.2571428571428571,
+        "width": 0.642578125,
+        "height": 0.47985347985347987
       },
       "hasBarcode": false
     },
@@ -139,12 +145,12 @@
         "8009900000211"
       ],
       "kind": "in_catalog",
-      "note": "Aurum Petal Viola",
+      "note": "Olvari Asciugacapelli Ionico Verde",
       "bbox": {
-        "x": 0.134765625,
-        "y": 0.2608058608058608,
-        "width": 0.8466796875,
-        "height": 0.5963369963369963
+        "x": 0.087890625,
+        "y": 0.18095238095238095,
+        "width": 0.79296875,
+        "height": 0.5597069597069597
       },
       "hasBarcode": false
     },
@@ -155,12 +161,12 @@
         "8009900000235"
       ],
       "kind": "in_catalog",
-      "note": "Lumen Care Curve Oro",
+      "note": "Olvari Asciugacapelli Travel Viola",
       "bbox": {
-        "x": 0.2431640625,
-        "y": 0.22197802197802197,
-        "width": 0.6572265625,
-        "height": 0.47545787545787543
+        "x": 0.2265625,
+        "y": 0.27326007326007323,
+        "width": 0.6708984375,
+        "height": 0.49743589743589745
       },
       "hasBarcode": false
     },
@@ -170,13 +176,16 @@
       "sameImageEans": [
         "8009900000259"
       ],
+      "oemTwinEans": [
+        "8009900000365"
+      ],
       "kind": "in_catalog",
-      "note": "Aurum Slim Classic Verde",
+      "note": "Marvessa Spazzolino Sonico Verde (esiste anche con marchio del grossista: prodotto OEM identico)",
       "bbox": {
-        "x": 0.1181640625,
-        "y": 0.24761904761904763,
-        "width": 0.828125,
-        "height": 0.6161172161172161
+        "x": 0.1259765625,
+        "y": 0.1391941391941392,
+        "width": 0.7900390625,
+        "height": 0.6051282051282051
       },
       "hasBarcode": false
     },
@@ -187,12 +196,12 @@
         "8009900000273"
       ],
       "kind": "in_catalog",
-      "note": "Aurum Bullet Oro",
+      "note": "Marvessa Spazzolino Ricaricabile Oro",
       "bbox": {
-        "x": 0.1220703125,
-        "y": 0.2139194139194139,
-        "width": 0.7099609375,
-        "height": 0.526007326007326
+        "x": 0.1640625,
+        "y": 0.25934065934065936,
+        "width": 0.6572265625,
+        "height": 0.49230769230769234
       },
       "hasBarcode": false
     },
@@ -203,12 +212,12 @@
         "8009900000297"
       ],
       "kind": "in_catalog",
-      "note": "Lumen Care Wand Mini Viola",
+      "note": "Solvetta Spazzolino Junior Nero",
       "bbox": {
-        "x": 0.1279296875,
-        "y": 0.28424908424908424,
+        "x": 0.2236328125,
+        "y": 0.23003663003663002,
         "width": 0.642578125,
-        "height": 0.48864468864468863
+        "height": 0.47545787545787543
       },
       "hasBarcode": false
     },
@@ -219,12 +228,12 @@
         "8009900000310"
       ],
       "kind": "in_catalog",
-      "note": "Moira Scrub Sensuale Verde",
+      "note": "Marvessa Scrub Corpo Fucsia",
       "bbox": {
-        "x": 0.1474609375,
-        "y": 0.2783882783882784,
-        "width": 0.681640625,
-        "height": 0.48644688644688644
+        "x": 0.11328125,
+        "y": 0.26153846153846155,
+        "width": 0.830078125,
+        "height": 0.5875457875457876
       },
       "hasBarcode": false
     },
@@ -235,12 +244,12 @@
         "8009900000334"
       ],
       "kind": "in_catalog",
-      "note": "Velvora Anello Duo Blu",
+      "note": "Marvessa Elastici Duo Nero",
       "bbox": {
-        "x": 0.08984375,
-        "y": 0.10329670329670329,
-        "width": 0.8876953125,
-        "height": 0.6527472527472528
+        "x": 0.1142578125,
+        "y": 0.21611721611721613,
+        "width": 0.80859375,
+        "height": 0.6175824175824176
       },
       "hasBarcode": false
     },
@@ -249,12 +258,12 @@
       "expectedEan": null,
       "sameImageEans": [],
       "kind": "out_of_catalog",
-      "note": "Orbix Tazza Termica (non a catalogo; forma simile a prodotti presenti)",
+      "note": "Tervalo Tazza Termica (non a catalogo; forma simile a prodotti presenti)",
       "bbox": {
-        "x": 0.1162109375,
-        "y": 0.15677655677655677,
-        "width": 0.8583984375,
-        "height": 0.6373626373626373
+        "x": 0.1240234375,
+        "y": 0.28717948717948716,
+        "width": 0.8134765625,
+        "height": 0.5787545787545788
       },
       "hasBarcode": false
     },
@@ -263,12 +272,12 @@
       "expectedEan": null,
       "sameImageEans": [],
       "kind": "out_of_catalog",
-      "note": "Kappa Tools Cacciavite (non a catalogo; forma simile a prodotti presenti)",
+      "note": "Kivento Penna Touch (non a catalogo; forma simile a prodotti presenti)",
       "bbox": {
-        "x": 0.1337890625,
-        "y": 0.2608058608058608,
-        "width": 0.6953125,
-        "height": 0.5135531135531135
+        "x": 0.0947265625,
+        "y": 0.21245421245421245,
+        "width": 0.73046875,
+        "height": 0.5545787545787546
       },
       "hasBarcode": false
     },
@@ -277,12 +286,12 @@
       "expectedEan": null,
       "sameImageEans": [],
       "kind": "out_of_catalog",
-      "note": "Nordhus Scatola Scarpe (non a catalogo; forma simile a prodotti presenti)",
+      "note": "Nordavik Scatola Scarpe (non a catalogo; forma simile a prodotti presenti)",
       "bbox": {
-        "x": 0.12109375,
-        "y": 0.20366300366300366,
-        "width": 0.7109375,
-        "height": 0.5362637362637362
+        "x": 0.0908203125,
+        "y": 0.24175824175824176,
+        "width": 0.6748046875,
+        "height": 0.5208791208791209
       },
       "hasBarcode": false
     },
@@ -291,12 +300,12 @@
       "expectedEan": null,
       "sameImageEans": [],
       "kind": "out_of_catalog",
-      "note": "Aqualine Borraccia (non a catalogo; forma simile a prodotti presenti)",
+      "note": "Acquedra Borraccia (non a catalogo; forma simile a prodotti presenti)",
       "bbox": {
-        "x": 0.08203125,
-        "y": 0.28205128205128205,
-        "width": 0.759765625,
-        "height": 0.5677655677655677
+        "x": 0.2265625,
+        "y": 0.32161172161172163,
+        "width": 0.6748046875,
+        "height": 0.4981684981684982
       },
       "hasBarcode": false
     }
