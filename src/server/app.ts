@@ -8,7 +8,7 @@ import helmet from '@fastify/helmet';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
-import { ZodError } from 'zod';
+import { z, ZodError } from 'zod';
 import { config, isProduction } from '../config.ts';
 import { HttpError, loadSessionUser } from './auth.ts';
 import { ImportRequestError } from '../imports/service.ts';
@@ -24,6 +24,9 @@ import { reviewRoutes } from './routes/reviews.ts';
 import { adminRoutes } from './routes/admin.ts';
 import { healthRoutes } from './routes/health.ts';
 import { changeRoutes } from './routes/changes.ts';
+
+// Validation messages shown to users (details of a 400) in Italian, like the rest of the interface.
+z.config(z.locales.it());
 
 const WEB_DIST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../dist/web');
 
@@ -65,8 +68,9 @@ export async function buildApp(opts: { logger?: boolean } = {}): Promise<Fastify
   app.decorateRequest('user', null);
   app.addHook('onRequest', async (request) => {
     request.user = null;
-    if (!request.url.startsWith('/api/')) return;
     const method = request.method;
+    // Every unsafe method is checked, whatever the path: the router decodes percent-escapes ("/%61pi/…"
+    // reaches the /api routes), so a prefix test on the raw URL could be bypassed.
     if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
       // CSRF: cross-site forms cannot set custom headers; cross-origin fetch would need CORS (not enabled).
       if (request.headers['x-requested-with'] !== 'fetch') throw new HttpError(403, 'Richiesta non valida (CSRF)', 'csrf');
@@ -75,6 +79,7 @@ export async function buildApp(opts: { logger?: boolean } = {}): Promise<Fastify
         throw new HttpError(403, 'Origine non consentita', 'csrf');
       }
     }
+    if (!(request.routeOptions.url ?? request.url).startsWith('/api/')) return;
     request.user = await loadSessionUser(request);
   });
   app.addHook('onResponse', async (request, reply) => {
@@ -88,10 +93,19 @@ export async function buildApp(opts: { logger?: boolean } = {}): Promise<Fastify
     if (err instanceof ImportRequestError || err instanceof AssociationError) return reply.status(err.status).send({ error: err.message });
     if (err instanceof ImageInputError) return reply.status(422).send({ error: err.message, code: 'invalid_image' });
     if (err instanceof ZodError) {
+      // A malformed id in the URL (/prodotti/abc) is a resource that does not exist, not a form error.
+      const params = (request.params ?? {}) as Record<string, unknown>;
+      if (err.issues.every((i) => i.path.length === 1 && typeof i.path[0] === 'string' && i.path[0] in params)) {
+        return reply.status(404).send({ error: 'Risorsa non trovata' });
+      }
       return reply.status(400).send({ error: 'Dati non validi', details: err.issues.map((i) => `${i.path.join('.')}: ${i.message}`) });
     }
     if (err.code === 'FST_REQ_FILE_TOO_LARGE' || err.statusCode === 413) return reply.status(413).send({ error: 'File troppo grande' });
     if (err.statusCode === 429) return reply.status(429).send({ error: 'Troppi tentativi: riprova tra poco' });
+    // Constraint violations caused by the request (a reference to a missing record, a duplicate) are client
+    // errors: answering 500 would also trigger the server-error alarms.
+    if (err.code === '23503') return reply.status(400).send({ error: 'Riferimento a un elemento inesistente o rimosso' });
+    if (err.code === '23505') return reply.status(409).send({ error: 'Elemento già esistente o operazione già in corso' });
     if (err.statusCode && err.statusCode < 500) return reply.status(err.statusCode).send({ error: err.message });
     request.log.error({ err }, 'unhandled error');
     return reply.status(500).send({ error: 'Errore interno. Riprova; se persiste contatta l’amministratore.' });

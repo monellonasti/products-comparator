@@ -8,7 +8,7 @@ const DUMMY_HASH = 'scrypt$16384$8$1$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAA
 
 export async function authRoutes(app: FastifyInstance) {
   app.post('/auth/login', { config: { rateLimit: { max: 10, timeWindow: '5 minutes' } } }, async (request, reply) => {
-    const body = z.object({ email: z.string().email().max(200), password: z.string().min(1).max(200) }).parse(request.body);
+    const body = z.object({ email: z.string().trim().min(3).max(200), password: z.string().min(1).max(200) }).parse(request.body);
     const user = (await pool.query('SELECT * FROM users WHERE email = $1', [body.email])).rows[0];
     const ok = await verifyPassword(body.password, user?.password_hash ?? DUMMY_HASH);
     if (!user || !ok || !user.active) {

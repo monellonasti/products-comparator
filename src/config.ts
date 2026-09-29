@@ -74,6 +74,15 @@ function load(): Config {
   if (cfg.NODE_ENV === 'production' && cfg.IMAGE_FETCH_DEV_ALLOW) {
     throw new Error('IMAGE_FETCH_DEV_ALLOW must be empty in production');
   }
+  // In production the public origin drives the CSRF origin check: the development default would make
+  // every write from the real domain fail (or trust the wrong origin).
+  if (cfg.NODE_ENV === 'production' && (!process.env.PUBLIC_ORIGIN || !cfg.PUBLIC_ORIGIN.startsWith('https://'))) {
+    throw new Error('PUBLIC_ORIGIN must be set to the https:// address of the application in production');
+  }
+  // A malformed key would surface only at the first feed, possibly weeks later: fail at startup instead.
+  if (cfg.SECRETS_KEY && Buffer.from(cfg.SECRETS_KEY, 'base64').length !== 32) {
+    throw new Error('SECRETS_KEY must be 32 bytes in base64 (openssl rand -base64 32)');
+  }
   return cfg;
 }
 

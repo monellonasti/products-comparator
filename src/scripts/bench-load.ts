@@ -21,6 +21,11 @@ const { values } = parseArgs({
 const N = Number(values.products);
 const USERS = Number(values.users);
 const benchUrl = process.env.BENCH_DATABASE_URL ?? process.env.DATABASE_URL!.replace(/\/[^/?]+(\?|$)/, '/comparator_bench$1');
+// The benchmark TRUNCATEs the catalogue tables: refuse any database not explicitly named for it.
+if (!/_bench$/.test(new URL(benchUrl).pathname.replace(/^\//, ''))) {
+  console.error('bench:load usa solo un database il cui nome finisce in _bench (BENCH_DATABASE_URL)');
+  process.exit(1);
+}
 process.env.DATABASE_URL = benchUrl;
 process.env.S3_BUCKET = process.env.BENCH_S3_BUCKET ?? 'comparator-bench';
 process.env.VISION_WARMUP = 'false';

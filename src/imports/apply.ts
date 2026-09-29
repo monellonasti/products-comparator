@@ -43,6 +43,7 @@ interface ExistingOffer {
   price: string | null;
   currency: string | null;
   vat_treatment: string;
+  vat_rate: string | null;
   units_per_pack: number | null;
   stock_quantity: number | null;
   stock_status: OfferCommercialState['stockStatus'];
@@ -50,11 +51,11 @@ interface ExistingOffer {
 }
 
 const commercial = (o: ExistingOffer): OfferCommercialState => ({
-  price: o.price, currency: o.currency, vatTreatment: o.vat_treatment, unitsPerPack: o.units_per_pack,
+  price: o.price, currency: o.currency, vatTreatment: o.vat_treatment, vatRate: o.vat_rate, unitsPerPack: o.units_per_pack,
   stockQuantity: o.stock_quantity, stockStatus: o.stock_status, imageUrls: o.image_urls ?? [], gtin: o.gtin,
 });
 const commercialOf = (o: NormalizedOffer): OfferCommercialState => ({
-  price: o.price, currency: o.currency, vatTreatment: o.vatTreatment, unitsPerPack: o.unitsPerPack,
+  price: o.price, currency: o.currency, vatTreatment: o.vatTreatment, vatRate: o.vatRate, unitsPerPack: o.unitsPerPack,
   stockQuantity: o.stockQuantity, stockStatus: o.stockStatus, imageUrls: o.imageUrls, gtin: o.barcode.gtin14,
 });
 
@@ -78,7 +79,7 @@ export async function applyBatch(tx: Tx, ctx: ApplyContext, rows: ParsedRow[]): 
     (
       await tx.query(
         `SELECT id, supplier_sku, product_id, link_source, gtin, active, row_hash, source_as_of, last_import_id, last_row_number,
-                price::text AS price, currency, vat_treatment, units_per_pack, stock_quantity, stock_status, image_urls
+                price::text AS price, currency, vat_treatment, vat_rate::text AS vat_rate, units_per_pack, stock_quantity, stock_status, image_urls
            FROM supplier_offers WHERE supplier_id = $1 AND supplier_sku = ANY($2::text[]) ORDER BY id FOR UPDATE`,
         [ctx.supplierId, skus],
       )
@@ -242,7 +243,7 @@ export async function applyBatch(tx: Tx, ctx: ApplyContext, rows: ParsedRow[]): 
     existing.set(offer.sku, {
       id: offerId, product_id: productId, link_source: linkSource, gtin: newGtin, active: true, row_hash: rowHash,
       source_as_of: ctx.asOf, last_import_id: ctx.runId, last_row_number: n.rowNumber,
-      price: offer.price, currency: offer.currency, vat_treatment: offer.vatTreatment, units_per_pack: offer.unitsPerPack,
+      price: offer.price, currency: offer.currency, vat_treatment: offer.vatTreatment, vat_rate: offer.vatRate, units_per_pack: offer.unitsPerPack,
       stock_quantity: offer.stockQuantity, stock_status: offer.stockStatus, image_urls: offer.imageUrls,
     });
 

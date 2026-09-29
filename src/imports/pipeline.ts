@@ -30,13 +30,16 @@ export async function runImport(runId: string, log: Logger = noop): Promise<'don
   try {
     const got = (await lockClient.query('SELECT pg_try_advisory_lock(hashtextextended($1, 0)) AS ok', [`import:${runId}`])).rows[0].ok;
     if (!got) return 'busy';
-    const run = (await pool.query('SELECT * FROM import_runs WHERE id = $1', [runId])).rows[0];
-    if (!run || run.status === 'succeeded' || run.status === 'cancelled' || run.status === 'uploaded') return 'skipped';
-    await pool.query(
-      `UPDATE import_runs SET status = 'running', started_at = coalesce(started_at, now()), attempts = attempts + 1,
-              heartbeat_at = now(), error = NULL WHERE id = $1`,
-      [runId],
-    );
+    // Conditional transition: a cancel that lands between a read and this update must not be overwritten.
+    const run = (
+      await pool.query(
+        `UPDATE import_runs SET status = 'running', started_at = coalesce(started_at, now()), attempts = attempts + 1,
+                heartbeat_at = now(), error = NULL
+          WHERE id = $1 AND status IN ('queued', 'running', 'failed') RETURNING *`,
+        [runId],
+      )
+    ).rows[0];
+    if (!run) return 'skipped';
     try {
       await stage(runId, log);
       await applyAll(runId, log);
@@ -44,14 +47,23 @@ export async function runImport(runId: string, log: Logger = noop): Promise<'don
       await pool.query('DELETE FROM import_staging_rows WHERE import_run_id = $1', [runId]);
       return 'done';
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      await pool.query(`UPDATE import_runs SET status = 'failed', error = $2, finished_at = now() WHERE id = $1`, [runId, message.slice(0, 2000)]);
-      await pool.query(
-        `UPDATE suppliers SET last_import_status = 'failed', last_import_finished_at = now(), updated_at = now() WHERE id = $1`,
-        [run.supplier_id],
+      // A PostgreSQL data exception (class 22: a value the column cannot hold, an invalid encoding) fails
+      // the same way on every retry: report it instead of retrying the same batch forever.
+      const dataError = typeof (err as { code?: unknown })?.code === 'string' && (err as { code: string }).code.startsWith('22');
+      const raw = err instanceof Error ? err.message : String(err);
+      const message = dataError ? `Dato non memorizzabile nel database (${raw}): correggere il file e ricaricarlo` : raw;
+      const failed = await pool.query(
+        `UPDATE import_runs SET status = 'failed', error = $2, finished_at = now() WHERE id = $1 AND status = 'running'`,
+        [runId, message.slice(0, 2000)],
       );
+      if (failed.rowCount) {
+        await pool.query(
+          `UPDATE suppliers SET last_import_status = 'failed', last_import_finished_at = now(), updated_at = now() WHERE id = $1`,
+          [run.supplier_id],
+        );
+      }
       log.error({ runId, err: message }, 'import failed');
-      if (err instanceof PermanentImportError || err instanceof ImportFileError) return 'done';
+      if (err instanceof PermanentImportError || err instanceof ImportFileError || dataError || !failed.rowCount) return 'done';
       throw err; // transient: graphile-worker retries with backoff and the run resumes from its checkpoint
     }
   } finally {
@@ -81,7 +93,7 @@ async function stage(runId: string, log: Logger) {
       await tx.query(
         `INSERT INTO import_staging_rows (import_run_id, row_number, raw)
          SELECT $1::uuid, x.rn, x.raw FROM unnest($2::int[], $3::jsonb[]) AS x(rn, raw)`,
-        [runId, chunk.map((r) => r.rowNumber), chunk.map((r) => JSON.stringify({ values: r.values, numeric: r.numeric, formula: r.formula }))],
+        [runId, chunk.map((r) => r.rowNumber), chunk.map((r) => JSON.stringify({ values: r.values, numeric: r.numeric, formula: r.formula, links: r.links }))],
       );
     }
     const activeBefore = (await tx.query('SELECT count(*)::int AS n FROM supplier_offers WHERE supplier_id = $1 AND active', [run.supplier_id])).rows[0].n;
@@ -112,7 +124,7 @@ async function applyAll(runId: string, log: Logger) {
         )
       ).rows;
       if (!staged.length) return true;
-      const rows: ParsedRow[] = staged.map((s) => ({ rowNumber: s.row_number, values: s.raw.values, numeric: s.raw.numeric, formula: s.raw.formula }));
+      const rows: ParsedRow[] = staged.map((s) => ({ rowNumber: s.row_number, values: s.raw.values, numeric: s.raw.numeric, formula: s.raw.formula, links: s.raw.links }));
       const defaults = run.defaults as ImportDefaults;
       const result = await applyBatch(tx, {
         runId,
@@ -178,10 +190,13 @@ async function finalize(runId: string, log: Logger) {
       } else {
         const deactivated = (
           await tx.query(
-            `UPDATE supplier_offers SET active = false, deactivated_at = now(), deactivated_reason = 'assente_dallo_snapshot', updated_at = now()
-              WHERE supplier_id = $1 AND active AND last_import_id IS DISTINCT FROM $2
+            // Offers with data newer than this snapshot (a later delta) are kept. The snapshot date is recorded
+            // so an older delta imported afterwards cannot bring the offer back.
+            `UPDATE supplier_offers SET active = false, deactivated_at = now(), deactivated_reason = 'assente_dallo_snapshot', updated_at = now(),
+                    source_as_of = GREATEST(source_as_of, $3)
+              WHERE supplier_id = $1 AND active AND last_import_id IS DISTINCT FROM $2 AND source_as_of <= $3
               RETURNING id, product_id, price::text AS price, currency, stock_status, stock_quantity`,
-            [run.supplier_id, runId],
+            [run.supplier_id, runId, run.as_of],
           )
         ).rows;
         counters.offers_deactivated = deactivated.length;
@@ -215,7 +230,7 @@ async function finalize(runId: string, log: Logger) {
         WHERE id = $1`,
       [run.supplier_id, run.as_of, run.mode === 'snapshot'],
     );
-    await enqueue(tx, 'suggest_matches', { supplierId: run.supplier_id, importRunId: runId }, { jobKey: `suggest:${run.supplier_id}`, maxAttempts: 3 });
+    await enqueue(tx, 'suggest_matches', { supplierId: run.supplier_id, importRunId: runId }, { jobKey: `suggest:${runId}`, maxAttempts: 3 });
     // Pictures replaced by the supplier at the same URL (reported as 'image_replaced' changes of this run).
     await enqueue(tx, 'images_recheck', { supplierId: run.supplier_id, runId }, { jobKey: `images_recheck:${run.supplier_id}`, maxAttempts: 3 });
     log.info({ runId, counters, snapshotResult }, 'import finalized');

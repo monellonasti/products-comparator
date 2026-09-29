@@ -25,13 +25,22 @@ function offsetAt(instant: number, timeZone: string): number {
   return asUtc - Math.floor(instant / 60_000) * 60_000;
 }
 
-/** UTC instant of a wall-clock time in a zone. Non-existent times (DST gap) resolve to the next valid instant. */
+/**
+ * UTC instant of a wall-clock time in a zone. The two offsets in force around that day are tried and the
+ * one that really gives that wall time wins: on the October change a repeated time (02:30) resolves to its
+ * first occurrence and an unrepeated one (01:30) keeps the summer offset. A non-existent time (the March
+ * gap) resolves to the instant shifted forward by the gap (02:30 -> 03:30).
+ */
 export function zonedTimeToUtc(year: number, month: number, day: number, hour: number, minute: number, timeZone: string): Date {
   const guess = Date.UTC(year, month - 1, day, hour, minute);
-  let ts = guess - offsetAt(guess, timeZone);
-  const corrected = guess - offsetAt(ts, timeZone);
-  if (corrected !== ts) ts = Math.max(ts, corrected);
-  return new Date(ts);
+  const before = guess - offsetAt(guess - 86_400_000, timeZone);
+  const after = guess - offsetAt(guess + 86_400_000, timeZone);
+  const shows = (ts: number) => {
+    const p = zonedParts(new Date(ts), timeZone);
+    return p.year === year && p.month === month && p.day === day && p.hour === hour && p.minute === minute;
+  };
+  const valid = [before, after].filter(shows).sort((a, b) => a - b);
+  return new Date(valid.length ? valid[0] : Math.max(before, after));
 }
 
 export function isValidTimeZone(tz: string): boolean {

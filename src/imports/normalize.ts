@@ -52,6 +52,9 @@ export interface NormalizedRow {
 }
 
 const MAX_IMAGES_PER_ROW = 12;
+/** numeric(14,4): larger prices cannot be stored and are almost always a code in the price column. */
+const MAX_PRICE = 9_999_999_999;
+const MAX_BARCODE_CELL = 64;
 const ATTRIBUTE_FIELDS = ['color', 'size', 'variant', 'net_content', 'pieces', 'material'] as const;
 
 function text(value: unknown, max = 500): string | null {
@@ -64,6 +67,12 @@ export function normalizeRow(row: ParsedRow, mapping: ColumnMapping, defaults: I
   const issues: RowIssue[] = [];
   const f = mapping.fields;
   const cell = (col: string | undefined) => (col ? row.values[col] ?? null : null);
+  // URL fields: an XLSX cell showing "Foto" or "Scheda" with a hyperlink contributes its link target.
+  const urlCell = (col: string | undefined) => {
+    const v = cell(col);
+    const link = col ? row.links?.[col] : undefined;
+    return link && !(typeof v === 'string' && /^https?:/i.test(v.trim())) ? link : v;
+  };
   const isNumericCell = (col: string | undefined) => !!col && !!row.numeric?.includes(col);
   const err = (field: string, code: string, message: string, value?: unknown) =>
     issues.push({ severity: 'error', field, code, message, value: value === null || value === undefined ? null : String(value).slice(0, 200) });
@@ -87,7 +96,9 @@ export function normalizeRow(row: ParsedRow, mapping: ColumnMapping, defaults: I
 
   // --- barcode (kept as original string)
   const barcodeCell = cell(f.barcode);
-  const barcode = parseBarcode(barcodeCell === null ? null : String(barcodeCell));
+  // A real code is at most 14 digits plus formatting; longer text (e.g. a description in the wrong
+  // column) is kept truncated so it never exceeds the indexed column.
+  const barcode = parseBarcode(barcodeCell === null ? null : String(barcodeCell).slice(0, MAX_BARCODE_CELL));
   if (barcode.status === 'invalid') {
     warn('barcode', `barcode_${barcode.issue}`, `EAN non valido (${barcodeIssueMessage(barcode.issue!)}): il prodotto resta separato`, barcodeCell);
   } else if (barcode.status === 'restricted') {
@@ -104,6 +115,11 @@ export function normalizeRow(row: ParsedRow, mapping: ColumnMapping, defaults: I
   if (!priceRes.ok) err('price', priceRes.code, priceRes.message, cell(f.price));
   else price = priceRes.value;
   if (price !== null && Number(price) < 0) err('price', 'negative_price', 'Prezzo negativo', price);
+  else if (price !== null && Number(price) > MAX_PRICE) {
+    err('price', 'price_out_of_range', 'Prezzo fuori scala: probabilmente un codice finito nella colonna del prezzo', price);
+  } else if (price !== null && Number(price) === 0) {
+    warn('price', 'zero_price', 'Prezzo pari a zero (prezzo su richiesta?): l’offerta non entra nel confronto prezzi', price);
+  }
 
   let currency = defaults.currency;
   if (f.currency && !isEmptyCell(cell(f.currency))) {
@@ -141,6 +157,10 @@ export function normalizeRow(row: ParsedRow, mapping: ColumnMapping, defaults: I
       warn(tier.column, 'invalid_tier_price', `Prezzo a scaglione non interpretabile (${t.message})`, cell(tier.column));
       continue;
     }
+    if (t.value !== null && (Number(t.value) <= 0 || Number(t.value) > MAX_PRICE)) {
+      warn(tier.column, 'invalid_tier_price', 'Prezzo a scaglione pari a zero o fuori scala: ignorato', t.value);
+      continue;
+    }
     if (t.value !== null) (priceTiers ??= []).push({ minQty: tier.minQty, price: t.value });
   }
   priceTiers?.sort((a, b) => a.minQty - b.minQty);
@@ -148,6 +168,7 @@ export function normalizeRow(row: ParsedRow, mapping: ColumnMapping, defaults: I
   // --- stock
   const qtyCell = splitQuantityCell(cell(f.stock_quantity));
   if (qtyCell.negative) warn('stock_quantity', 'negative_stock', 'Giacenza negativa: considerata esaurita, quantità non registrata', cell(f.stock_quantity));
+  if (qtyCell.outOfRange) warn('stock_quantity', 'stock_out_of_range', 'Giacenza fuori scala: quantità non registrata', cell(f.stock_quantity));
   const availabilityRaw = text(cell(f.availability), 200) ?? qtyCell.text;
   const stock = resolveStock({ quantity: qtyCell.quantity, availabilityText: availabilityRaw });
   const stockStatus: StockStatus = qtyCell.negative && stock.status === 'unknown' ? 'out_of_stock' : stock.status;
@@ -160,13 +181,13 @@ export function normalizeRow(row: ParsedRow, mapping: ColumnMapping, defaults: I
   // --- links
   let productUrl: string | null = null;
   if (f.product_url) {
-    const u = parseHttpUrl(cell(f.product_url));
-    if (!u.ok) warn('product_url', u.code, u.message, cell(f.product_url));
+    const u = parseHttpUrl(urlCell(f.product_url));
+    if (!u.ok) warn('product_url', u.code, u.message, urlCell(f.product_url));
     else productUrl = u.value;
   }
   const imageUrls: string[] = [];
   for (const col of f.image_urls ?? []) {
-    for (const candidate of splitUrls(cell(col))) {
+    for (const candidate of splitUrls(urlCell(col))) {
       const u = parseHttpUrl(candidate);
       if (!u.ok) warn(col, 'invalid_image_url', u.message, candidate);
       else if (u.value && !imageUrls.includes(u.value)) imageUrls.push(u.value);

@@ -32,11 +32,13 @@ export function parseDecimal(value: unknown, sep: DecimalSeparator): ParseResult
   s = s.replace(/^(€|eur|euro|\$|usd|£|gbp|chf)\s*/i, '').replace(/\s*(€|eur|euro|\$|usd|£|gbp|chf)$/i, '').trim();
   const thousands = sep === ',' ? '.' : ',';
   const esc = (c: string) => (c === '.' ? '\\.' : c);
-  const re = new RegExp(`^(-)?(\\d{1,3}(?:[${esc(thousands)} ]\\d{3})+|\\d+)(?:${esc(sep)}(\\d+))?$`);
+  // A thousands group never starts with 0: "0.125" with ',' as decimal separator is a decimal written
+  // with the other separator, not 125.
+  const re = new RegExp(`^(-)?([1-9]\\d{0,2}(?:[${esc(thousands)} ]\\d{3})+|\\d+)(?:${esc(sep)}(\\d+))?$`);
   const m = re.exec(s);
   if (!m) {
     const other = sep === ',' ? '.' : ',';
-    if (new RegExp(`^-?\\d+${esc(other)}\\d{1,2}$`).test(s)) {
+    if (new RegExp(`^-?\\d+${esc(other)}\\d{1,2}$|^-?0${esc(other)}\\d+$`).test(s)) {
       return fail('decimal_separator_mismatch', `Separatore decimale "${other}" diverso da quello configurato "${sep}"`);
     }
     return fail('invalid_number', `Numero non interpretabile: "${truncate(s)}"`);
@@ -70,18 +72,26 @@ export function parseCurrency(value: unknown): ParseResult<string> {
 
 export function parseVatRate(value: unknown, sep: DecimalSeparator): ParseResult<string> {
   if (isEmptyCell(value)) return ok(null);
+  // An Excel cell formatted as a percentage holds the fraction (22% is stored as 0.22).
+  if (typeof value === 'number' && value > 0 && value < 1) return parseDecimal(Math.round(value * 1_000_000) / 10_000, sep);
   const cleaned = String(value).trim().replace(/%$/, '').trim();
   const d = parseDecimal(cleaned, sep);
   if (!d.ok || d.value === null) return d;
   const n = Number(d.value);
   if (n < 0 || n >= 100) return fail('invalid_vat_rate', 'Aliquota IVA fuori intervallo');
+  // No VAT rate is below 1%: a typed "0,22" is a fraction, and silently multiplying could be wrong.
+  if (n > 0 && n < 1) return fail('vat_rate_fraction', `Aliquota IVA scritta come frazione ("${truncate(cleaned)}"): indicare la percentuale, es. 22`);
   return d;
 }
 
 /** Accepts only absolute http(s) URLs; anything else is reported, never rewritten. */
+const MAX_URL_LENGTH = 2048;
+
 export function parseHttpUrl(value: unknown): ParseResult<string> {
   if (isEmptyCell(value)) return ok(null);
   const s = String(value).trim();
+  // Longer values do not fit the unique index on image sources and are never real listino links.
+  if (s.length > MAX_URL_LENGTH) return fail('url_too_long', `URL più lungo di ${MAX_URL_LENGTH} caratteri`);
   let url: URL;
   try {
     url = new URL(s);

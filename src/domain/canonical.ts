@@ -159,19 +159,27 @@ export async function refreshProducts(db: Db, productIds: Iterable<string>): Pro
   }
   if (!rows.length) return;
   // One statement for the whole batch (column arrays via unnest) instead of one UPDATE per product.
+  // Rows whose values are identical are not rewritten (a daily feed confirms most products unchanged:
+  // rewriting them would regenerate the full-text and trigram index entries every time), and updated_at
+  // moves only when the product content changes, not when a listino merely confirms freshness.
   const col = (i: number) => rows.map((r) => r[i]);
+  const content = (t: string) =>
+    `(${t}.status, ${t}.title, ${t}.brand, ${t}.category_id, ${t}.primary_image_id, ${t}.attributes, ${t}.canonical_sources, ${t}.offer_count,
+      ${t}.supplier_count, ${t}.available_supplier_count, ${t}.best_price, ${t}.best_unit_price, ${t}.best_price_currency, ${t}.has_gtin,
+      ${t}.primary_gtin, ${t}.image_count, ${t}.search_text)`;
   await db.query(
     `UPDATE products p SET
        status = x.status, title = x.title, brand = x.brand, category_id = x.category_id, primary_image_id = x.primary_image_id,
        attributes = x.attributes, canonical_sources = x.canonical_sources, offer_count = x.offer_count, supplier_count = x.supplier_count,
        available_supplier_count = x.available_supplier_count, best_price = x.best_price, best_unit_price = x.best_unit_price,
        best_price_currency = x.best_price_currency, has_gtin = x.has_gtin, primary_gtin = x.primary_gtin, image_count = x.image_count,
-       data_as_of = x.data_as_of, search_text = x.search_text, updated_at = now()
+       data_as_of = x.data_as_of, search_text = x.search_text,
+       updated_at = CASE WHEN ${content('p')} IS DISTINCT FROM ${content('x')} THEN now() ELSE p.updated_at END
      FROM unnest($1::uuid[], $2::text[], $3::text[], $4::text[], $5::uuid[], $6::uuid[], $7::jsonb[], $8::jsonb[], $9::int[], $10::int[], $11::int[],
                  $12::jsonb[], $13::numeric[], $14::text[], $15::bool[], $16::text[], $17::int[], $18::timestamptz[], $19::text[])
        AS x(id, status, title, brand, category_id, primary_image_id, attributes, canonical_sources, offer_count, supplier_count,
             available_supplier_count, best_price, best_unit_price, best_price_currency, has_gtin, primary_gtin, image_count, data_as_of, search_text)
-     WHERE p.id = x.id`,
+     WHERE p.id = x.id AND (${content('p')} IS DISTINCT FROM ${content('x')} OR p.data_as_of IS DISTINCT FROM x.data_as_of)`,
     Array.from({ length: 19 }, (_, i) => col(i)),
   );
 }

@@ -10,10 +10,12 @@ export interface ImageEmbedder {
   status(): { state: 'idle' | 'loading' | 'ready' | 'failed'; error: string | null; loadMs: number | null };
   load(): Promise<void>;
   /** Input: the "infer" JPEG from makeInferImage(). Output: L2-normalised vector of spec.dim floats. */
-  embed(inferJpeg: Buffer): Promise<Float32Array>;
+  embed(inferJpeg: Buffer, opts?: { waitMs?: number }): Promise<Float32Array>;
 }
 
 export class EmbedderUnavailableError extends Error {}
+
+const MAX_WAITERS = 64;
 
 class OnnxImageEmbedder implements ImageEmbedder {
   readonly spec: ModelSpec;
@@ -69,10 +71,14 @@ class OnnxImageEmbedder implements ImageEmbedder {
 
   private RawImage: any = null;
 
-  async embed(inferJpeg: Buffer): Promise<Float32Array> {
+  /**
+   * `waitMs` bounds the time spent waiting for a free slot (interactive searches): a request that gave up
+   * leaves the queue instead of running an inference nobody will read.
+   */
+  async embed(inferJpeg: Buffer, opts: { waitMs?: number } = {}): Promise<Float32Array> {
     // Bounded parallelism: at most VISION_CONCURRENCY inferences at a time (ONNX Runtime sessions accept
     // concurrent runs); more would oversubscribe the CPU threads.
-    await this.acquire();
+    await this.acquire(opts.waitMs);
     try {
       return await this.embedNow(inferJpeg);
     } finally {
@@ -81,17 +87,32 @@ class OnnxImageEmbedder implements ImageEmbedder {
   }
 
   private running = 0;
-  private waiters: Array<() => void> = [];
-  private acquire(): Promise<void> {
+  private waiters: Array<{ grant: () => void }> = [];
+  private acquire(waitMs?: number): Promise<void> {
     if (this.running < config.VISION_CONCURRENCY) {
       this.running++;
       return Promise.resolve();
     }
-    return new Promise((resolve) => this.waiters.push(() => resolve()));
+    // Fail fast under overload rather than piling up requests that will all time out.
+    if (this.waiters.length >= MAX_WAITERS) {
+      return Promise.reject(new EmbedderUnavailableError('Troppe analisi di foto in coda: riprova tra qualche secondo'));
+    }
+    return new Promise((resolve, reject) => {
+      const waiter = { grant: () => {
+        clearTimeout(timer);
+        resolve();
+      } };
+      const timer = waitMs === undefined ? undefined : setTimeout(() => {
+        const i = this.waiters.indexOf(waiter);
+        if (i >= 0) this.waiters.splice(i, 1);
+        reject(new EmbedderUnavailableError('Tempo scaduto in attesa dell’analisi della foto'));
+      }, waitMs);
+      this.waiters.push(waiter);
+    });
   }
   private release() {
     const next = this.waiters.shift();
-    if (next) next();
+    if (next) next.grant(); // the slot passes to the next waiter
     else this.running--;
   }
 

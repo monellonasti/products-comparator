@@ -64,36 +64,52 @@ export async function photoSearch(input: {
 
   const searchId = randomUUID();
   const imageKey = keys.searchImage(searchId);
+  // Read before the stages start: no await may sit between starting a stage and handling its promise,
+  // or a stage failing early (storage or database down) becomes an unhandled rejection that stops the API.
+  const active = await getActiveModel(pool);
 
   // Independent stages run concurrently: storing the photo, barcode evidence, visual retrieval.
   const storeStage = storage().put(imageKey, display, 'image/jpeg').then(() => t.mark('store'));
 
   const barcodeStage = (async () => {
-    let barcodeText: string | null = null;
-    if (input.clientBarcode) barcodeText = input.clientBarcode.trim().slice(0, 32);
+    let texts: string[] = [];
+    if (input.clientBarcode) texts = [input.clientBarcode.trim().slice(0, 32)];
     else {
       try {
         const found = await decodeRetailBarcodes(input.crop ? await makeInferImageForBarcode(input.image, input.crop) : input.image);
-        barcodeText = found.find((f) => f.parsed.status === 'valid')?.parsed.gtin14 ?? found[0]?.text ?? null;
+        const valid = found.filter((f) => f.parsed.status === 'valid').map((f) => f.parsed.gtin14!);
+        texts = valid.length ? valid : found[0] ? [found[0].text] : [];
       } catch (err) {
         // Barcode reading is optional evidence: the search continues, but the failure is visible.
         metrics.inc('barcode_decode_errors_total');
         console.error(JSON.stringify({ level: 'error', msg: 'barcode decode failed', err: (err as Error).message }));
       }
     }
-    const parsed = barcodeText ? parseBarcode(barcodeText) : null;
-    const products = parsed?.gtin14 ? await productsByGtin(parsed.gtin14) : [];
+    // Only a valid GTIN confirms a product: a restricted (in-store/internal) code does not identify it.
+    // With several codes in the photo, the first one present in the catalogue is used.
+    let barcodeText: string | null = texts[0] ?? null;
+    let parsed = barcodeText ? parseBarcode(barcodeText) : null;
+    let products: string[] = [];
+    for (const text of texts) {
+      const p = parseBarcode(text);
+      const found = p.status === 'valid' && p.gtin14 ? await productsByGtin(p.gtin14) : [];
+      if (found.length) {
+        barcodeText = text;
+        parsed = p;
+        products = found;
+        break;
+      }
+    }
     t.mark('barcode');
     return { barcodeText, parsed, products };
   })();
 
-  const active = await getActiveModel(pool);
   const visualStage = (async () => {
     if (!config.VISION_ENABLED || !active) {
       return { status: 'provider_unavailable' as const, message: 'La ricerca per immagine non è attiva: puoi cercare per testo, EAN o SKU.', hits: [] };
     }
     try {
-      const vec = await withTimeout(getEmbedder(active.spec.id).embed(infer), EMBED_TIMEOUT_MS, 'Tempo scaduto per l’analisi della foto');
+      const vec = await withTimeout(getEmbedder(active.spec.id).embed(infer, { waitMs: EMBED_TIMEOUT_MS }), EMBED_TIMEOUT_MS, 'Tempo scaduto per l’analisi della foto');
       t.mark('embed');
       const hits = await nearestImages(active.key, active.spec.dim, vec);
       t.mark('ann');
@@ -111,77 +127,88 @@ export async function photoSearch(input: {
     }
   })();
 
-  const [, bc, visualResult] = await Promise.all([storeStage, barcodeStage, visualStage]);
-  const { barcodeText, parsed: parsedBarcode, products: barcodeProducts } = bc;
-  const status: PhotoSearchResult['status'] = visualResult.status;
-  const message: string | null = visualResult.message;
-  const hits = visualResult.hits;
-
-  // --- aggregate per product (one card per canonical product, best image kept)
-  const byProduct = await aggregateByProduct(hits);
-  const allowed = await applyFilters([...new Set([...byProduct.keys(), ...barcodeProducts])], input.filters ?? {});
-  const cards = await productCards([...allowed]);
-  t.lap('aggregate');
-
-  const thresholds = active?.thresholds ?? { possible: 1, similar: 1, calibrated: false };
-  const candidates: Candidate[] = [];
-  for (const pid of barcodeProducts) {
-    if (!allowed.has(pid) || !cards.get(pid)) continue;
-    const v = byProduct.get(pid);
-    candidates.push({
-      product: cards.get(pid)!,
-      group: 'confirmed',
-      score: v ? round(v.score) : null,
-      matchedImageId: v?.assetId ?? null,
-      matchingImages: v?.count ?? 0,
-      evidence: [{ kind: 'barcode', text: `Codice a barre ${displayGtin(parsedBarcode!.gtin14!)} letto nella foto e presente nel catalogo` }],
-    });
+  try {
+    return await finishPhotoSearch();
+  } catch (err) {
+    // The stored photo must not outlive a failed search: without a photo_searches row the retention job
+    // would never find it.
+    await storage().delete(imageKey).catch(() => {});
+    throw err;
   }
-  const visual = [...byProduct.entries()]
-    .filter(([pid]) => allowed.has(pid) && !barcodeProducts.includes(pid) && cards.get(pid))
-    .sort((a, b) => b[1].score - a[1].score);
-  for (const [pid, v] of visual) {
-    if (candidates.length >= MAX_RESULTS) break;
-    const group = v.score >= thresholds.possible ? 'possible' : v.score >= thresholds.similar ? 'similar' : null;
-    if (!group) continue;
-    const evidence: Candidate['evidence'] = [
-      { kind: 'visual', text: group === 'possible' ? 'Aspetto molto simile a una foto del catalogo' : 'Aspetto simile (possibile alternativa)' },
-    ];
-    if (v.shared) evidence.push({ kind: 'shared_image', text: 'La stessa foto è usata per più prodotti: verificare variante e confezione' });
-    candidates.push({ product: cards.get(pid)!, group, score: round(v.score), matchedImageId: v.assetId, matchingImages: v.count, evidence });
-  }
-  const coverage = active ? await indexCoverage(pool, active.key) : null;
-  const abstained = status === 'ok' && candidates.length === 0;
-  const timings = t.done();
-  metrics.observe('photo_search_server_ms', timings.total);
 
-  const result: PhotoSearchResult = {
-    searchId,
-    status,
-    message,
-    barcode: parsedBarcode
-      ? { text: barcodeText!, status: parsedBarcode.status, gtin: parsedBarcode.gtin14 ? displayGtin(parsedBarcode.gtin14) : null, matchedProducts: barcodeProducts.length }
-      : null,
-    candidates,
-    abstained,
-    coverage: coverage ? { indexed: coverage.indexed, assets: coverage.assets, pending: coverage.pending } : null,
-    model: active ? { key: active.key, calibrated: !!thresholds.calibrated } : null,
-    timings,
-  };
-  await pool.query(
-    `INSERT INTO photo_searches (id, user_id, status, image_key, image_expires_at, crop, filters, model_key, barcode, timings, result, error)
-     VALUES ($1, $2, $3, $4, now() + make_interval(hours => $5), $6::jsonb, $7::jsonb, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12)`,
-    [
-      searchId, input.userId, status, imageKey, config.PHOTO_SEARCH_RETENTION_HOURS, JSON.stringify(input.crop ?? null),
-      JSON.stringify(input.filters ?? {}), active?.key ?? null, JSON.stringify(result.barcode), JSON.stringify(timings),
-      JSON.stringify({
-        candidates: candidates.map((c) => ({ productId: c.product.id, group: c.group, score: c.score, imageId: c.matchedImageId, evidence: c.evidence })),
-        abstained, coverage: result.coverage, model: result.model, parentSearchId: input.parentSearchId ?? null,
-      }),
+  async function finishPhotoSearch(): Promise<PhotoSearchResult> {
+    const [, bc, visualResult] = await Promise.all([storeStage, barcodeStage, visualStage]);
+    const { barcodeText, parsed: parsedBarcode, products: barcodeProducts } = bc;
+    const status: PhotoSearchResult['status'] = visualResult.status;
+    const message: string | null = visualResult.message;
+    const hits = visualResult.hits;
+
+    // --- aggregate per product (one card per canonical product, best image kept)
+    const byProduct = await aggregateByProduct(hits);
+    const allowed = await applyFilters([...new Set([...byProduct.keys(), ...barcodeProducts])], input.filters ?? {});
+    const cards = await productCards([...allowed]);
+    t.lap('aggregate');
+
+    const thresholds = active?.thresholds ?? { possible: 1, similar: 1, calibrated: false };
+    const candidates: Candidate[] = [];
+    for (const pid of barcodeProducts) {
+      if (!allowed.has(pid) || !cards.get(pid)) continue;
+      const v = byProduct.get(pid);
+      candidates.push({
+        product: cards.get(pid)!,
+        group: 'confirmed',
+        score: v ? round(v.score) : null,
+        matchedImageId: v?.assetId ?? null,
+        matchingImages: v?.count ?? 0,
+        evidence: [{ kind: 'barcode', text: `Codice a barre ${displayGtin(parsedBarcode!.gtin14!)} letto nella foto e presente nel catalogo` }],
+      });
+    }
+    const visual = [...byProduct.entries()]
+      .filter(([pid]) => allowed.has(pid) && !barcodeProducts.includes(pid) && cards.get(pid))
+      .sort((a, b) => b[1].score - a[1].score);
+    for (const [pid, v] of visual) {
+      if (candidates.length >= MAX_RESULTS) break;
+      const group = v.score >= thresholds.possible ? 'possible' : v.score >= thresholds.similar ? 'similar' : null;
+      if (!group) continue;
+      const evidence: Candidate['evidence'] = [
+        { kind: 'visual', text: group === 'possible' ? 'Aspetto molto simile a una foto del catalogo' : 'Aspetto simile (possibile alternativa)' },
+      ];
+      if (v.shared) evidence.push({ kind: 'shared_image', text: 'La stessa foto è usata per più prodotti: verificare variante e confezione' });
+      candidates.push({ product: cards.get(pid)!, group, score: round(v.score), matchedImageId: v.assetId, matchingImages: v.count, evidence });
+    }
+    const coverage = active ? await indexCoverage(pool, active.key) : null;
+    const abstained = status === 'ok' && candidates.length === 0;
+    const timings = t.done();
+    metrics.observe('photo_search_server_ms', timings.total);
+
+    const result: PhotoSearchResult = {
+      searchId,
+      status,
       message,
-    ],
-  );
-  return result;
+      barcode: parsedBarcode
+        ? { text: barcodeText!, status: parsedBarcode.status, gtin: parsedBarcode.gtin14 ? displayGtin(parsedBarcode.gtin14) : null, matchedProducts: barcodeProducts.length }
+        : null,
+      candidates,
+      abstained,
+      coverage: coverage ? { indexed: coverage.indexed, assets: coverage.assets, pending: coverage.pending } : null,
+      model: active ? { key: active.key, calibrated: !!thresholds.calibrated } : null,
+      timings,
+    };
+    await pool.query(
+      `INSERT INTO photo_searches (id, user_id, status, image_key, image_expires_at, crop, filters, model_key, barcode, timings, result, error)
+       VALUES ($1, $2, $3, $4, now() + make_interval(hours => $5), $6::jsonb, $7::jsonb, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12)`,
+      [
+        searchId, input.userId, status, imageKey, config.PHOTO_SEARCH_RETENTION_HOURS, JSON.stringify(input.crop ?? null),
+        JSON.stringify(input.filters ?? {}), active?.key ?? null, JSON.stringify(result.barcode), JSON.stringify(timings),
+        JSON.stringify({
+          candidates: candidates.map((c) => ({ productId: c.product.id, group: c.group, score: c.score, imageId: c.matchedImageId, evidence: c.evidence })),
+          abstained, coverage: result.coverage, model: result.model, parentSearchId: input.parentSearchId ?? null,
+        }),
+        message,
+      ],
+    );
+    return result;
+  }
 }
 
 async function makeInferImageForBarcode(image: Buffer, crop: Crop): Promise<Buffer> {

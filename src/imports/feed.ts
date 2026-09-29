@@ -188,9 +188,20 @@ export async function downloadFeed(feed: LoadedFeed): Promise<Downloaded> {
   });
   if (res.kind !== 'ok') throw new FeedError(`Download del feed ${feed.cfg.urlDisplay} non riuscito: ${res.reason}`, 502);
   if (!res.bytes.length) throw new FeedError(`Il feed ${feed.cfg.urlDisplay} ha restituito un file vuoto`, 502);
-  const base = decodeURIComponent(path.posix.basename(new URL(feed.url).pathname)).replace(/[^\w.\- ]+/g, '_').slice(0, 120);
+  // The last path segment names the stored file only when it looks like a file name: a segment that is an
+  // access token (".../export/<token>") must not end up in file names visible to every user.
+  const segment = safeDecode(path.posix.basename(new URL(feed.url).pathname));
+  const base = /^[^/]{1,80}\.(csv|txt|tsv|xlsx)$/i.test(segment) ? segment.replace(/[^\w.\- ]+/g, '_') : `${feed.supplier.code}.${res.bytes[0] === 0x50 ? 'xlsx' : 'csv'}`;
   const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
-  return { bytes: res.bytes, fileName: `feed-${stamp}-${base || feed.supplier.code}` };
+  return { bytes: res.bytes, fileName: `feed-${stamp}-${base}` };
+}
+
+function safeDecode(s: string): string {
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s; // malformed escape (e.g. "listino%E0.csv"): keep it as written
+  }
 }
 
 async function loadProfile(supplierId: string) {

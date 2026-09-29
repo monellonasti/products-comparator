@@ -10,7 +10,7 @@ import { TARGET_FIELDS, type ColumnMapping } from '../../imports/fields.ts';
 import { invalidateFacets } from '../../search/catalog.ts';
 import { csvCell } from '../../lib/csv.ts';
 
-function runToApi(r: any) {
+export function runToApi(r: any) {
   return {
     id: r.id, supplierId: r.supplier_id, supplierName: r.supplier_name, status: r.status, mode: r.mode, fileName: r.file_name, fileKind: r.file_kind,
     fileSize: r.file_size, fileSha256: r.file_sha256, asOf: r.as_of, counters: r.counters, stagedRows: r.staged_rows, checkpointRow: r.checkpoint_row,
@@ -19,6 +19,9 @@ function runToApi(r: any) {
     parseOptions: r.parse_options,
   };
 }
+
+const RUNS_PAGE = 50;
+const ISSUES_CSV_MAX = 100_000;
 
 export async function importRoutes(app: FastifyInstance) {
   app.get('/imports/fields', async (request) => {
@@ -106,11 +109,12 @@ export async function importRoutes(app: FastifyInstance) {
       await pool.query(
         `SELECT r.*, s.name AS supplier_name, u.display_name AS created_by_name FROM import_runs r
            JOIN suppliers s ON s.id = r.supplier_id LEFT JOIN users u ON u.id = r.created_by
-          WHERE ${where.map((w) => `(${w})`).join(' AND ')} ORDER BY r.created_at DESC LIMIT 50 OFFSET ${q.offset}`,
+          WHERE ${where.map((w) => `(${w})`).join(' AND ')} ORDER BY r.created_at DESC, r.id LIMIT ${RUNS_PAGE + 1} OFFSET ${q.offset}`,
         params,
       )
     ).rows;
-    return { items: rows.map(runToApi) };
+    // One extra row tells the client whether there is a next page.
+    return { items: rows.slice(0, RUNS_PAGE).map(runToApi), offset: q.offset, limit: RUNS_PAGE, hasMore: rows.length > RUNS_PAGE };
   });
 
   app.get('/imports/:id', async (request) => {
@@ -167,8 +171,16 @@ export async function importRoutes(app: FastifyInstance) {
   app.get('/imports/:id/issues.csv', async (request, reply) => {
     requireUser(request);
     const { id } = z.object({ id: z.guid() }).parse(request.params);
-    const rows = (await pool.query(`SELECT row_number, severity, field, code, message, value FROM import_row_issues WHERE import_run_id = $1 ORDER BY row_number, id`, [id])).rows;
+    const rows = (
+      await pool.query(
+        `SELECT row_number, severity, field, code, message, value FROM import_row_issues WHERE import_run_id = $1 ORDER BY row_number, id LIMIT ${ISSUES_CSV_MAX + 1}`,
+        [id],
+      )
+    ).rows;
+    const truncated = rows.length > ISSUES_CSV_MAX;
+    if (truncated) rows.length = ISSUES_CSV_MAX;
     const lines = ['riga;gravita;campo;codice;messaggio;valore', ...rows.map((r) => [r.row_number, r.severity, r.field, r.code, r.message, r.value].map(csvCell).join(';'))];
+    if (truncated) lines.push(['', '', '', '', `Elenco troncato alle prime ${ISSUES_CSV_MAX} righe: correggere il file e ricaricarlo`, ''].map(csvCell).join(';'));
     return reply
       .header('content-type', 'text/csv; charset=utf-8')
       .header('content-disposition', `attachment; filename="import-${id.slice(0, 8)}-problemi.csv"`)

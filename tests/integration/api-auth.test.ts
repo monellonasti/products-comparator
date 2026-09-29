@@ -1,9 +1,12 @@
 // Server-side authorisation, CSRF guard and session handling through the real Fastify app.
+import { createHash, randomBytes } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { pool } from '../../src/db/pool.ts';
 import { buildApp } from '../../src/server/app.ts';
 import { hashPassword } from '../../src/server/auth.ts';
+import { createFsStorage, setStorageForTests } from '../../src/storage/index.ts';
+import sharp from 'sharp';
 import { createSupplier, importCsv, resetDatabase, row } from '../helpers.ts';
 
 let app: FastifyInstance;
@@ -13,6 +16,16 @@ async function login(email: string): Promise<string> {
   const res = await app.inject({ method: 'POST', url: '/api/auth/login', headers: { 'x-requested-with': 'fetch' }, payload: { email, password: PW } });
   expect(res.statusCode).toBe(200);
   return String(res.headers['set-cookie']).split(';')[0];
+}
+
+/** A session created directly (like a login would): tests that are not about logging in must not use up the login rate limit. */
+async function sessionCookie(email: string): Promise<string> {
+  const token = randomBytes(32).toString('base64url');
+  await pool.query(
+    `INSERT INTO sessions (token_hash, user_id, expires_at) SELECT $1, id, now() + interval '1 hour' FROM users WHERE email = $2`,
+    [createHash('sha256').update(token).digest('hex'), email],
+  );
+  return `pc_session=${token}`;
 }
 
 beforeAll(async () => {
@@ -103,10 +116,63 @@ describe('CSRF guard', () => {
 });
 
 describe('input validation', () => {
-  it('rejects malformed ids and payloads with 400', async () => {
+  it('answers 404 for a malformed id in the URL and 400 with Italian details for a bad payload', async () => {
     const cookie = await login('admin@test.local');
-    expect((await app.inject({ method: 'GET', url: '/api/products/not-a-uuid', headers: { cookie } })).statusCode).toBe(400);
+    const missing = await app.inject({ method: 'GET', url: '/api/products/not-a-uuid', headers: { cookie } });
+    expect(missing.statusCode).toBe(404);
+    expect(missing.json().error).toBe('Risorsa non trovata');
     const bad = await app.inject({ method: 'POST', url: '/api/suppliers', headers: { cookie, 'x-requested-with': 'fetch' }, payload: { code: 'BAD CODE', name: '' } });
     expect(bad.statusCode).toBe(400);
+    expect(bad.json().details.join(' ')).not.toMatch(/Invalid|Too small/);
+  });
+
+  it('applies the CSRF guard to percent-encoded API paths too', async () => {
+    const cookie = await sessionCookie('admin@test.local');
+    const res = await app.inject({ method: 'POST', url: '/%61pi/auth/logout', headers: { cookie } });
+    expect(res.statusCode).toBe(403);
+    expect((await app.inject({ method: 'GET', url: '/api/auth/me', headers: { cookie } })).statusCode).toBe(200);
+  });
+
+  it('maps database constraint violations to client errors, not 500', async () => {
+    const cookie = await sessionCookie('admin@test.local');
+    const res = await app.inject({
+      method: 'POST', url: '/api/categories', headers: { cookie, 'x-requested-with': 'fetch' },
+      payload: { name: 'Figlia di nessuno', parentId: '00000000-0000-4000-8000-000000000000' },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+});
+
+describe('photo search resilience', () => {
+  it('answers with an error, and keeps the process alive, when the storage fails at the start of a search', async () => {
+    const cookie = await sessionCookie('op@test.local');
+    const fs = createFsStorage('.data/test-storage');
+    // Storage down: the photo upload fails immediately, while the other stages are still starting.
+    setStorageForTests({
+      put: () => Promise.reject(new Error('storage down')),
+      get: (k) => fs.get(k), exists: (k) => fs.exists(k), delete: (k) => fs.delete(k), list: (p) => fs.list(p), check: (c) => fs.check(c),
+    });
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => unhandled.push(reason);
+    process.on('unhandledRejection', onUnhandled);
+    try {
+      const image = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#c33' } }).jpeg().toBuffer();
+      const boundary = '----audit-photo';
+      const payload = Buffer.concat([
+        Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="image"; filename="foto.jpg"\r\nContent-Type: image/jpeg\r\n\r\n`),
+        image,
+        Buffer.from(`\r\n--${boundary}--\r\n`),
+      ]);
+      const res = await app.inject({
+        method: 'POST', url: '/api/search/photo', payload,
+        headers: { cookie, 'x-requested-with': 'fetch', 'content-type': `multipart/form-data; boundary=${boundary}` },
+      });
+      await new Promise((r) => setTimeout(r, 200)); // let any stray rejection surface
+      expect(res.statusCode).toBe(500);
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+      setStorageForTests(fs);
+    }
   });
 });

@@ -28,6 +28,16 @@ export interface MergeInput {
 /** Merges `source` into `target`: offers and identifiers move, `source` becomes status=merged. */
 export async function mergeProducts(tx: Tx, input: MergeInput): Promise<number> {
   if (input.targetId === input.sourceId) throw new AssociationError('Impossibile unire un prodotto con sé stesso');
+  // Serialise with imports: they take the same advisory lock on each GTIN before reading which product owns
+  // it, so no import can attach a new offer to the source product while it is being merged (the offer would
+  // end up on a "merged" product and disappear from the catalogue). Taken before the row locks, in the same
+  // order as imports (sorted), to avoid lock-order deadlocks.
+  const gtins = (
+    await tx.query(`SELECT DISTINCT value FROM product_identifiers WHERE kind = 'gtin' AND product_id = ANY($1::uuid[]) ORDER BY value`, [
+      [input.targetId, input.sourceId],
+    ])
+  ).rows.map((r) => r.value as string);
+  for (const g of gtins) await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`gtin:${g}`]);
   const products = await lockProducts(tx, [input.targetId, input.sourceId]);
   const target = products.get(input.targetId);
   const source = products.get(input.sourceId);

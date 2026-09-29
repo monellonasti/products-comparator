@@ -27,8 +27,11 @@ export function encryptSecret(key: Buffer, plaintext: string, aad: string): stri
 export function decryptSecret(key: Buffer, encoded: string, aad: string): string {
   const [version, iv, tag, ct] = encoded.split('.');
   if (version !== VERSION || !iv || !tag || ct === undefined) throw new Error('Formato del segreto non riconosciuto');
-  const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64url'));
+  // A truncated tag would weaken the integrity check: only the full 16 bytes written by encryptSecret pass.
+  const tagBytes = Buffer.from(tag, 'base64url');
+  if (tagBytes.length !== 16) throw new Error('Formato del segreto non riconosciuto');
+  const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64url'), { authTagLength: 16 });
   decipher.setAAD(Buffer.from(aad, 'utf8'));
-  decipher.setAuthTag(Buffer.from(tag, 'base64url'));
+  decipher.setAuthTag(tagBytes);
   return Buffer.concat([decipher.update(Buffer.from(ct, 'base64url')), decipher.final()]).toString('utf8');
 }

@@ -20,6 +20,8 @@ export interface ParsedRow {
   numeric?: string[];
   /** Headers whose XLSX cell held a formula (cached result used). */
   formula?: string[];
+  /** Hyperlink targets of XLSX cells (the visible text stays the value; links are used only for URL fields). */
+  links?: Record<string, string>;
 }
 
 export interface ParsedFile {
@@ -97,12 +99,13 @@ function countOutsideQuotes(line: string, d: string): number {
 }
 
 export function dedupeHeaders(raw: unknown[]): string[] {
-  const seen = new Map<string, number>();
+  // Every generated name is checked too: ['Img', 'Img', 'Img (2)'] must not produce two "Img (2)".
+  const used = new Set<string>();
   return raw.map((h, i) => {
-    let name = String(h ?? '').replace(/\s+/g, ' ').trim() || `Colonna ${i + 1}`;
-    const count = seen.get(name) ?? 0;
-    seen.set(name, count + 1);
-    if (count > 0) name = `${name} (${count + 1})`;
+    const base = String(h ?? '').replace(/\s+/g, ' ').trim() || `Colonna ${i + 1}`;
+    let name = base;
+    for (let n = 2; used.has(name); n++) name = `${base} (${n})`;
+    used.add(name);
     return name;
   });
 }
@@ -207,17 +210,19 @@ async function parseXlsxNow(bytes: Buffer, opts: ParseOptions, maxRows?: number)
     const values: Record<string, CellValue> = {};
     const numeric: string[] = [];
     const formula: string[] = [];
+    let links: Record<string, string> | undefined;
     let any = false;
     headers.forEach((h, j) => {
       const conv = cellToValue(row.getCell(j + 1));
       values[h] = conv.value;
+      if (conv.link) (links ??= {})[h] = conv.link;
       if (conv.value !== null && String(conv.value).trim() !== '') any = true;
       if (conv.numeric) numeric.push(h);
       if (conv.formula) formula.push(h);
       if (conv.error) warnings.add(`Celle con errore Excel (es. riga ${r}): valore ignorato`);
     });
     if (!any) continue;
-    rows.push({ rowNumber: r, values, numeric: numeric.length ? numeric : undefined, formula: formula.length ? formula : undefined });
+    rows.push({ rowNumber: r, values, numeric: numeric.length ? numeric : undefined, formula: formula.length ? formula : undefined, links });
   }
   return {
     kind: 'xlsx',
@@ -229,7 +234,7 @@ async function parseXlsxNow(bytes: Buffer, opts: ParseOptions, maxRows?: number)
   };
 }
 
-function cellToValue(cell: ExcelJS.Cell): { value: CellValue; numeric?: boolean; formula?: boolean; error?: boolean } {
+function cellToValue(cell: ExcelJS.Cell): { value: CellValue; numeric?: boolean; formula?: boolean; error?: boolean; link?: string } {
   const v = cell.value as any;
   if (v === null || v === undefined) return { value: null };
   if (typeof v === 'number') return { value: numberCell(v), numeric: true };
@@ -246,8 +251,11 @@ function cellToValue(cell: ExcelJS.Cell): { value: CellValue; numeric?: boolean;
     }
     if ('richText' in v) return { value: (v.richText as Array<{ text: string }>).map((t) => t.text).join('') };
     if ('hyperlink' in v) {
+      // The visible text is the value (an SKU or a title with a link stays itself); the target is kept
+      // aside for URL fields.
       const text = typeof v.text === 'string' ? v.text : v.text?.richText?.map((t: any) => t.text).join('');
-      return { value: text && /^https?:/i.test(text) ? text : v.hyperlink ?? text ?? null };
+      const link = typeof v.hyperlink === 'string' ? v.hyperlink : undefined;
+      return { value: text ?? link ?? null, link };
     }
   }
   return { value: String(v) };

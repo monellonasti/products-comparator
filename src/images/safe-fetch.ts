@@ -25,6 +25,8 @@ for (const [addr, prefix] of [
 ] as const) blocked.addSubnet(addr, prefix, 'ipv4');
 for (const [addr, prefix] of [
   ['::', 128], ['::1', 128], ['fc00::', 7], ['fe80::', 10], ['ff00::', 8], ['2001:db8::', 32], ['100::', 64], ['2001::', 32],
+  // IPv4-compatible (::a.b.c.d), deprecated site-local, 6to4 (embeds an IPv4 address, possibly private).
+  ['::', 96], ['fec0::', 10], ['2002::', 16],
 ] as const) blocked.addSubnet(addr, prefix, 'ipv6');
 
 export function isPublicAddress(address: string): boolean {
@@ -76,11 +78,15 @@ export async function safeFetch(rawUrl: string, opts: SafeFetchOptions): Promise
   }
   const maxRedirects = opts.maxRedirects ?? 3;
   const origin = url.origin;
+  // One deadline for the whole download (DNS, every redirect, the body): the socket timeout alone only
+  // measures inactivity, so a server trickling a byte every few seconds would hold a worker for hours.
+  const deadline = Date.now() + (opts.timeoutMs ?? config.IMAGE_FETCH_TIMEOUT_MS);
   for (let hop = 0; hop <= maxRedirects; hop++) {
-    const check = await resolveTarget(url, opts.allowlist);
+    const check = await withDeadline(resolveTarget(url, opts.allowlist), deadline);
+    if (check === 'timeout') return { kind: 'transient', reason: 'Timeout' };
     if ('reason' in check) return { kind: 'permanent', reason: check.reason };
     const extra = url.origin === origin ? opts.credentialHeaders ?? {} : {};
-    const res = await request(url, check.address, check.family, opts, extra);
+    const res = await request(url, check.address, check.family, opts, extra, deadline);
     if (res.kind === 'redirect') {
       try {
         url = new URL(res.location, url);
@@ -92,6 +98,15 @@ export async function safeFetch(rawUrl: string, opts: SafeFetchOptions): Promise
     return res;
   }
   return { kind: 'permanent', reason: 'Troppi redirect' };
+}
+
+async function withDeadline<T>(p: Promise<T>, deadline: number): Promise<T | 'timeout'> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([p, new Promise<'timeout'>((resolve) => (timer = setTimeout(() => resolve('timeout'), Math.max(0, deadline - Date.now()))))]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function resolveTarget(url: URL, allowlist: string[]): Promise<{ address: string; family: 4 | 6 } | { reason: string }> {
@@ -120,11 +135,17 @@ function request(
   family: 4 | 6,
   opts: SafeFetchOptions,
   extraHeaders: Record<string, string>,
+  deadline: number,
 ): Promise<FetchOutcome | { kind: 'redirect'; location: string }> {
   const maxBytes = opts.maxBytes ?? config.IMAGE_FETCH_MAX_BYTES;
-  const timeoutMs = opts.timeoutMs ?? config.IMAGE_FETCH_TIMEOUT_MS;
+  const timeoutMs = Math.max(1, deadline - Date.now());
   const mod = url.protocol === 'https:' ? https : http;
-  return new Promise((resolve) => {
+  return new Promise((done) => {
+    let total: NodeJS.Timeout | undefined;
+    const resolve = (r: FetchOutcome | { kind: 'redirect'; location: string }) => {
+      clearTimeout(total);
+      done(r);
+    };
     const req = mod.request(
       url,
       {
@@ -197,6 +218,10 @@ function request(
       req.destroy();
       resolve({ kind: 'transient', reason: 'Timeout' });
     });
+    total = setTimeout(() => {
+      req.destroy();
+      resolve({ kind: 'transient', reason: 'Timeout' });
+    }, timeoutMs);
     req.on('error', (e) => resolve({ kind: 'transient', reason: e.message }));
     req.end();
   });

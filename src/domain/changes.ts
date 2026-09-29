@@ -23,6 +23,8 @@ export interface OfferCommercialState {
   price: string | null;
   currency: string | null;
   vatTreatment: string;
+  /** Matters only for gross prices: the same gross amount with another rate is another net price. */
+  vatRate?: string | null;
   unitsPerPack: number | null;
   stockQuantity: number | null;
   stockStatus: StockStatus;
@@ -41,11 +43,16 @@ export interface ChangeRecord {
 
 const samePrice = (a: string | null, b: string | null) => toScaled(a) === toScaled(b);
 
+/** offer_changes.pct is numeric(9,2); beyond that a percentage says nothing (e.g. a 0,01 placeholder). */
+const MAX_PCT = 9_999_999n * 1_000_000n;
+
 export function priceChangePct(oldPrice: string, newPrice: string): string | null {
   const o = toScaled(oldPrice) as Scaled;
   const n = toScaled(newPrice) as Scaled;
   if (!o) return null; // from 0: no meaningful percentage
-  return fromScaled(mulDiv(n - o, 100n * 1_000_000n, o), 2);
+  const pct = mulDiv(n - o, 100n * 1_000_000n, o);
+  if (pct > MAX_PCT || pct < -MAX_PCT) return null;
+  return fromScaled(pct, 2);
 }
 
 export function diffOffer(
@@ -56,8 +63,12 @@ export function diffOffer(
   opts: { compareImages: boolean },
 ): ChangeRecord[] {
   const out: ChangeRecord[] = [];
-  const priceState = (s: OfferCommercialState) => ({ price: s.price, currency: s.currency, vat: s.vatTreatment, unitsPerPack: s.unitsPerPack });
-  const conditionsSame = before.currency === after.currency && before.vatTreatment === after.vatTreatment && before.unitsPerPack === after.unitsPerPack;
+  const priceState = (s: OfferCommercialState) => ({
+    price: s.price, currency: s.currency, vat: s.vatTreatment, unitsPerPack: s.unitsPerPack, ...(s.vatTreatment === 'gross' ? { vatRate: s.vatRate ?? null } : {}),
+  });
+  const sameRate = before.vatTreatment !== 'gross' || toScaled(before.vatRate ?? null) === toScaled(after.vatRate ?? null);
+  const conditionsSame =
+    before.currency === after.currency && before.vatTreatment === after.vatTreatment && sameRate && before.unitsPerPack === after.unitsPerPack;
   if (!samePrice(before.price, after.price) || !conditionsSame) {
     const pct = conditionsSame && before.price !== null && after.price !== null ? priceChangePct(before.price, after.price) : null;
     out.push({ offerId, productId, type: 'price', oldValue: priceState(before), newValue: priceState(after), pct });

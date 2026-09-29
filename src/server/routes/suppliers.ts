@@ -11,9 +11,13 @@ import {
   feedInputSchema, FeedError, HTTP_FEED, requestFeedRun, sampleFeedForWizard, saveFeedConfig, secretFlags, testFeed, type FeedConfig,
 } from '../../imports/feed.ts';
 import { SecretsUnavailableError } from '../../lib/secrets.ts';
+import { runToApi } from './imports.ts';
 
-/** Feed state for the UI: configuration without secrets, only whether each secret is set. */
-async function feedView(s: any) {
+/**
+ * Feed state for the UI: configuration without secrets, only whether each secret is set. Operators see
+ * only the host of the feed URL: its path can itself be an access token (".../export/<token>/list.csv").
+ */
+async function feedView(s: any, isAdmin: boolean) {
   const cfg = s.connector_kind === HTTP_FEED ? (s.connector_config as FeedConfig) : null;
   const lastRun = s.feed_last_run_id
     ? (await pool.query(`SELECT id, status, error, counters, finished_at, created_at FROM import_runs WHERE id = $1`, [s.feed_last_run_id])).rows[0] ?? null
@@ -22,7 +26,7 @@ async function feedView(s: any) {
     configured: !!cfg,
     secretsKeyConfigured: !!config.SECRETS_KEY,
     enabled: s.feed_enabled,
-    urlDisplay: cfg?.urlDisplay ?? null,
+    urlDisplay: cfg ? (isAdmin ? cfg.urlDisplay : hostOnly(cfg.urlDisplay)) : null,
     authType: cfg?.authType ?? 'none',
     headerName: cfg?.headerName ?? null,
     secretsSet: cfg ? await secretFlags(pool, s.id) : null,
@@ -32,10 +36,18 @@ async function feedView(s: any) {
     nextRunAt: s.feed_next_run_at,
     lastCheckedAt: s.feed_last_checked_at,
     lastStatus: s.feed_last_status,
-    lastError: s.feed_last_error,
+    lastError: isAdmin || !cfg || !s.feed_last_error ? s.feed_last_error : String(s.feed_last_error).split(cfg.urlDisplay).join(hostOnly(cfg.urlDisplay)),
     consecutiveFailures: s.feed_consecutive_failures,
     lastRun,
   };
+}
+
+function hostOnly(url: string): string {
+  try {
+    return `${new URL(url).origin}/…`;
+  } catch {
+    return '…';
+  }
 }
 
 function feedErrors(err: unknown): never {
@@ -47,7 +59,7 @@ function feedErrors(err: unknown): never {
 const supplierBody = z.object({
   code: z.string().regex(/^[a-z0-9][a-z0-9-]{1,40}$/, 'Codice: minuscole, numeri e trattini (2-41 caratteri)'),
   name: z.string().min(1).max(200),
-  website: z.string().url().max(500).nullable().optional(),
+  website: z.string().url().max(500).regex(/^https?:\/\//i, 'Sito web: indirizzo http o https').nullable().optional(),
   priority: z.number().int().min(0).max(10000).default(100),
   defaultCurrency: z.string().regex(/^[A-Z]{3}$/).default('EUR'),
   defaultVatTreatment: z.enum(['net', 'gross', 'unknown']).default('unknown'),
@@ -95,7 +107,7 @@ export async function supplierRoutes(app: FastifyInstance) {
     const s = (await pool.query('SELECT * FROM suppliers WHERE id = $1', [id])).rows[0];
     if (!s) throw new HttpError(404, 'Fornitore non trovato');
     const profile = (await pool.query(`SELECT * FROM import_profiles WHERE supplier_id = $1 ORDER BY name`, [id])).rows;
-    return { supplier: toApi(s), profiles: profile, feed: await feedView(s) };
+    return { supplier: toApi(s), profiles: profile, feed: await feedView(s, request.user!.role === 'admin') };
   });
 
   app.post('/suppliers', async (request) => {
@@ -160,7 +172,7 @@ export async function supplierRoutes(app: FastifyInstance) {
       feedErrors(err);
     }
     const s = (await pool.query('SELECT * FROM suppliers WHERE id = $1', [id])).rows[0];
-    return { feed: await feedView(s) };
+    return { feed: await feedView(s, true) };
   });
 
   app.post('/suppliers/:id/feed/test', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request) => {
@@ -177,7 +189,8 @@ export async function supplierRoutes(app: FastifyInstance) {
     const user = requireRole(request, 'admin');
     const { id } = z.object({ id: z.guid() }).parse(request.params);
     try {
-      return await sampleFeedForWizard(id, user.id);
+      const r = await sampleFeedForWizard(id, user.id);
+      return { ...r, run: runToApi(r.run) }; // same shape as POST /imports: the wizard reads camelCase fields
     } catch (err) {
       feedErrors(err);
     }

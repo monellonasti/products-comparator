@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { pool } from '../../db/pool.ts';
 import { storage } from '../../storage/index.ts';
@@ -6,25 +7,35 @@ import { metrics } from '../metrics.ts';
 import { getActiveModel, indexCoverage } from '../../vision/index-admin.ts';
 import { getEmbedder } from '../../vision/embedder.ts';
 
+/** Constant-time comparison of a presented token (lengths are compared on their hashes). */
+function sameSecret(presented: string, expected: string): boolean {
+  const a = createHash('sha256').update(presented).digest();
+  const b = createHash('sha256').update(expected).digest();
+  return timingSafeEqual(a, b);
+}
+
 export async function healthRoutes(app: FastifyInstance) {
   // Liveness: the process is up.
   app.get('/healthz', async () => ({ ok: true }));
 
   // Readiness: DB and storage reachable. Visual search degradation is reported but does not fail
   // readiness (the catalogue must stay usable without it).
-  app.get('/readyz', async (_request, reply) => {
-    const checks: Record<string, { ok: boolean; detail?: string }> = {};
+  // Public endpoint: the error details (host names, users, bucket) go to the log, not to the response.
+  app.get('/readyz', async (request, reply) => {
+    const checks: Record<string, { ok: boolean }> = {};
     try {
       await pool.query('SELECT 1');
       checks.database = { ok: true };
     } catch (err) {
-      checks.database = { ok: false, detail: (err as Error).message };
+      request.log.error({ err }, 'readiness: database not reachable');
+      checks.database = { ok: false };
     }
     try {
       await storage().check(!isProduction);
       checks.storage = { ok: true };
     } catch (err) {
-      checks.storage = { ok: false, detail: (err as Error).message };
+      request.log.error({ err }, 'readiness: storage not reachable');
+      checks.storage = { ok: false };
     }
     const vision = config.VISION_ENABLED ? getEmbedder().status() : { state: 'disabled', error: null };
     const ready = checks.database.ok && checks.storage.ok;
@@ -32,7 +43,7 @@ export async function healthRoutes(app: FastifyInstance) {
   });
 
   app.get('/metrics', async (request, reply) => {
-    if (!config.METRICS_TOKEN || request.headers.authorization !== `Bearer ${config.METRICS_TOKEN}`) return reply.status(404).send();
+    if (!config.METRICS_TOKEN || !sameSecret(request.headers.authorization ?? '', `Bearer ${config.METRICS_TOKEN}`)) return reply.status(404).send();
     const gauges: Record<string, number> = {};
     try {
       const q = (

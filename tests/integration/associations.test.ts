@@ -89,3 +89,33 @@ describe('reversible associations', () => {
     expect((await pool.query(`SELECT count(*)::int n FROM match_reviews WHERE status = 'open'`)).rows[0].n).toBe(0);
   });
 });
+
+describe('merge and concurrent imports', () => {
+  it('a merge waits for an import holding the lock on one of the GTINs involved', async () => {
+    const s1 = await createSupplier('alfa');
+    const s2 = await createSupplier('beta');
+    await importCsv({ supplierId: s1.id, rows: [row({ SKU: 'A1', EAN: EAN_A })] });
+    await importCsv({ supplierId: s2.id, rows: [row({ SKU: 'B1', EAN: EAN_B })] });
+    const pa = await productOf('A1');
+    const pb = await productOf('B1');
+    // An import of supplier B is between "who owns this GTIN?" and "attach the offer" (it holds the GTIN lock).
+    const importTx = await pool.connect();
+    try {
+      await importTx.query('BEGIN');
+      await importTx.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`gtin:0${EAN_B}`]);
+      await expect(
+        withTx(async (tx) => {
+          await tx.query(`SET LOCAL lock_timeout = '300ms'`);
+          return mergeProducts(tx, { targetId: pa, sourceId: pb, actor: admin, reason: 'Stesso articolo, confermato dal fornitore' });
+        }),
+      ).rejects.toThrow(/lock timeout|timeout/i);
+      expect((await pool.query(`SELECT status FROM products WHERE id = $1`, [pb])).rows[0].status).toBe('active');
+    } finally {
+      await importTx.query('ROLLBACK');
+      importTx.release();
+    }
+    // Once the import is done the merge goes through.
+    await withTx((tx) => mergeProducts(tx, { targetId: pa, sourceId: pb, actor: admin, reason: 'Stesso articolo, confermato dal fornitore' }));
+    expect(await productOf('B1')).toBe(pa);
+  });
+});

@@ -10,7 +10,10 @@ let migrated = false;
 
 export async function resetDatabase() {
   const url = process.env.DATABASE_URL!;
-  if (!/_test\b|test/.test(url)) throw new Error(`Refusing to wipe a non-test database: ${url}`);
+  // The database NAME must say it is a test database: "test" anywhere in the URL (host, user, password)
+  // is not enough.
+  const name = new URL(url).pathname.replace(/^\//, '');
+  if (!/(^|_)test$/.test(name)) throw new Error(`Refusing to wipe a database whose name does not end in _test: ${name}`);
   if (!migrated) {
     await migrate(url, () => {});
     await ensureWorkerSchema(url);

@@ -54,9 +54,11 @@ async function oriented(bytes: Buffer, crop?: Crop | null): Promise<Buffer> {
   const H = buf.info.height;
   const left = clamp(Math.round(crop.x * W), 0, W - 1);
   const top = clamp(Math.round(crop.y * H), 0, H - 1);
+  // A crop against the right or bottom edge can leave less than 16 px: that is a user error (422),
+  // not an extract area outside the image (500).
+  if (W - left < 16 || H - top < 16) throw new ImageInputError('Ritaglio troppo piccolo');
   const width = clamp(Math.round(crop.width * W), 16, W - left);
   const height = clamp(Math.round(crop.height * H), 16, H - top);
-  if (width < 16 || height < 16) throw new ImageInputError('Ritaglio troppo piccolo');
   return sharp(buf.data).extract({ left, top, width, height }).toBuffer();
 }
 

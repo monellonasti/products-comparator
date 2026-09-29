@@ -30,5 +30,7 @@ const res = await pool.query(
    RETURNING id, email, role`,
   [values.email, values.name, values.role, await hashPassword(password)],
 );
-console.log(`utente pronto: ${res.rows[0].email} (${res.rows[0].role})`);
+// Existing account: a new password (or role) must not leave sessions opened with the old one.
+const ended = await pool.query('DELETE FROM sessions WHERE user_id = $1', [res.rows[0].id]);
+console.log(`utente pronto: ${res.rows[0].email} (${res.rows[0].role})${ended.rowCount ? `, ${ended.rowCount} sessioni chiuse` : ''}`);
 await pool.end();

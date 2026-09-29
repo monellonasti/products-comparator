@@ -1,9 +1,9 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { pool } from '../../src/db/pool.ts';
 import { runImport } from '../../src/imports/pipeline.ts';
-import { createUploadRun } from '../../src/imports/service.ts';
+import { createUploadRun, ImportRequestError, startRun } from '../../src/imports/service.ts';
 import { storage } from '../../src/storage/index.ts';
-import { createSupplier, importCsv, resetDatabase, row } from '../helpers.ts';
+import { createSupplier, csv, defaultsNet, importCsv, resetDatabase, row, standardMapping } from '../helpers.ts';
 import { buildZip, xlsxParts } from '../zip-builder.ts';
 
 const EAN_A = '4006381333931';
@@ -218,5 +218,64 @@ describe('concurrency', () => {
     const s1 = await createSupplier('alfa');
     await importCsv({ supplierId: s1.id, rows: [row({ SKU: 'A' })], run: false });
     await expect(importCsv({ supplierId: s1.id, rows: [row({ SKU: 'B' })], run: false })).rejects.toThrow(/già un import in corso/);
+  });
+});
+
+// Audit 2026-09-29: one bad row must not fail (and endlessly retry) a whole listino; snapshot dates are
+// compared per offer; two starts racing for one supplier end in a clean 409.
+describe('robustness', () => {
+  it('a value the database cannot hold fails only its row: the import succeeds and the other rows apply', async () => {
+    const s = await createSupplier('alfa');
+    const run = await importCsv({
+      supplierId: s.id,
+      rows: [row({ SKU: 'EAN-IN-PRICE', Prezzo: '8001234567890' }), row({ SKU: 'HUGE-STOCK', Giacenza: '3000000000' }), row({ SKU: 'OK', Prezzo: '12.5' })],
+    });
+    expect(run.status).toBe('succeeded');
+    const offers = (await pool.query(`SELECT supplier_sku, stock_quantity FROM supplier_offers ORDER BY supplier_sku`)).rows;
+    expect(offers).toEqual([{ supplier_sku: 'HUGE-STOCK', stock_quantity: null }, { supplier_sku: 'OK', stock_quantity: null }]);
+    expect(await count(`SELECT count(*)::int n FROM import_row_issues WHERE code = 'price_out_of_range'`)).toBe(1);
+  });
+
+  it('a price jump from a 0,01 placeholder is recorded without an unstorable percentage', async () => {
+    const s = await createSupplier('alfa');
+    await importCsv({ supplierId: s.id, rows: [row({ SKU: 'P', Prezzo: '0.01' })] });
+    const run = await importCsv({ supplierId: s.id, rows: [row({ SKU: 'P', Prezzo: '1500' })] });
+    expect(run.status).toBe('succeeded');
+    const change = (await pool.query(`SELECT change_type, pct FROM offer_changes WHERE import_run_id = $1`, [run.id])).rows[0];
+    expect(change).toEqual({ change_type: 'price', pct: null });
+    expect((await pool.query(`SELECT price::text FROM supplier_offers WHERE supplier_sku = 'P'`)).rows[0].price).toBe('1500.0000');
+  });
+
+  it('a snapshot does not remove an offer that a later-dated delta added, and an older delta cannot revive a removed one', async () => {
+    const s = await createSupplier('alfa');
+    const day = (d: number) => new Date(Date.UTC(2026, 0, d, 8));
+    await importCsv({ supplierId: s.id, mode: 'snapshot', asOf: day(1), rows: [row({ SKU: 'A' }), row({ SKU: 'B' })] });
+    await importCsv({ supplierId: s.id, mode: 'delta', asOf: day(3), rows: [row({ SKU: 'X' })] });
+    await importCsv({ supplierId: s.id, mode: 'snapshot', asOf: day(2), rows: [row({ SKU: 'A' }), row({ SKU: 'B' })] });
+    const active = async (sku: string) => (await pool.query(`SELECT active FROM supplier_offers WHERE supplier_sku = $1`, [sku])).rows[0].active;
+    expect(await active('X')).toBe(true);
+    await importCsv({ supplierId: s.id, mode: 'snapshot', asOf: day(5), rows: [row({ SKU: 'A' }), row({ SKU: 'B' })] });
+    expect(await active('X')).toBe(false);
+    await importCsv({ supplierId: s.id, mode: 'delta', asOf: day(4), rows: [row({ SKU: 'X' })] });
+    expect(await active('X')).toBe(false);
+  });
+
+  it('two imports started together for one supplier: one is queued, the other gets a 409', async () => {
+    const s = await createSupplier('alfa');
+    const a = await createUploadRun({ supplierId: s.id, fileName: 'a.csv', bytes: csv([row({ SKU: 'A' })]), userId: null });
+    const b = await createUploadRun({ supplierId: s.id, fileName: 'b.csv', bytes: csv([row({ SKU: 'B' })]), userId: null });
+    const input = { mapping: standardMapping, defaults: defaultsNet, parseOptions: { decimalSeparator: '.' as const }, mode: 'delta' as const, asOf: null, saveProfile: false };
+    const results = await Promise.allSettled([startRun(a.run.id, input), startRun(b.run.id, input)]);
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    const rejected = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
+    expect(rejected.reason).toBeInstanceOf(ImportRequestError);
+    expect(rejected.reason.status).toBe(409);
+  });
+
+  it('an import job is not tied to a per-supplier queue (a crashed worker would block it for hours)', async () => {
+    const s = await createSupplier('alfa');
+    const run = await importCsv({ supplierId: s.id, rows: [row({ SKU: 'A' })], run: false });
+    const job = (await pool.query(`SELECT queue_name FROM graphile_worker.jobs WHERE key = $1`, [`import_run:${run.id}`])).rows[0];
+    expect(job.queue_name).toBeNull();
   });
 });

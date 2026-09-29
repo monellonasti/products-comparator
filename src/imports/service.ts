@@ -26,10 +26,16 @@ export const parseOptionsSchema = z.object({
   decimalSeparator: z.enum(['.', ',']).optional(),
 });
 
-export const mappingSchema = z.object({
-  fields: z.record(z.string(), z.union([z.string().max(300), z.array(z.string().max(300)).max(20)])),
-  tiers: z.array(z.object({ column: z.string().max(300), minQty: z.number().int().positive() })).max(10).optional(),
-});
+export const mappingSchema = z
+  .object({
+    fields: z.record(z.string(), z.union([z.string().max(300), z.array(z.string().max(300)).max(20)])),
+    tiers: z.array(z.object({ column: z.string().max(300), minQty: z.number().int().positive() })).max(10).optional(),
+  })
+  .refine((m) => Object.entries(m.fields).every(([k, v]) => k === 'image_urls' || typeof v === 'string'), {
+    message: 'Solo le immagini possono essere associate a più colonne',
+  })
+  // A single image column sent as a string is one column, not a list of characters.
+  .transform((m) => (typeof m.fields.image_urls === 'string' ? { ...m, fields: { ...m.fields, image_urls: m.fields.image_urls ? [m.fields.image_urls] : [] } } : m));
 
 export const defaultsSchema = z.object({
   currency: z.string().regex(/^[A-Z]{3}$/).nullable(),
@@ -278,12 +284,30 @@ function validateMapping(mapping: ColumnMapping) {
   if (!mapping.fields.sku) throw new ImportRequestError('Mappare la colonna del codice fornitore (SKU): è la chiave di aggiornamento');
 }
 
+/**
+ * The unique index allows one queued/running import per supplier. Two starts racing past the check
+ * (a scheduled feed and a manual upload) must end in a 409 for the loser, not in a raw database error.
+ */
+async function oneActivePerSupplier<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    const e = err as { code?: string; constraint?: string };
+    if (e.code === '23505' && e.constraint === 'import_runs_one_active_per_supplier') {
+      throw new ImportRequestError('C’è già un import in corso per questo fornitore: attendere la fine', 409);
+    }
+    throw err;
+  }
+}
+
+// Import jobs are not put in a per-supplier graphile queue: the unique index above already allows one
+// active import per supplier, and a queue locked by a crashed worker stays blocked for hours.
 export async function startRun(
   runId: string,
   input: { mapping: ColumnMapping; defaults: ImportDefaults; parseOptions?: ParseOptions; mode: 'snapshot' | 'delta'; asOf?: Date | null; saveProfile: boolean },
 ) {
   validateMapping(input.mapping);
-  return withTx(async (tx) => {
+  return oneActivePerSupplier(() => withTx(async (tx) => {
     const run = (await tx.query('SELECT * FROM import_runs WHERE id = $1 FOR UPDATE', [runId])).rows[0];
     if (!run) throw new ImportRequestError('Import non trovato', 404);
     if (run.status !== 'uploaded') throw new ImportRequestError('Import già avviato', 409);
@@ -313,13 +337,13 @@ export async function startRun(
         [runId, input.mode, asOf, JSON.stringify(input.mapping), JSON.stringify(input.defaults), JSON.stringify(parseOptions), profileId],
       )
     ).rows[0];
-    await enqueue(tx, 'import_run', { runId }, { queueName: `import:${run.supplier_id}`, jobKey: `import_run:${runId}`, maxAttempts: 3 });
+    await enqueue(tx, 'import_run', { runId }, { jobKey: `import_run:${runId}`, maxAttempts: 3 });
     return updated;
-  });
+  }));
 }
 
 export async function retryRun(runId: string) {
-  return withTx(async (tx) => {
+  return oneActivePerSupplier(() => withTx(async (tx) => {
     const run = (await tx.query('SELECT * FROM import_runs WHERE id = $1 FOR UPDATE', [runId])).rows[0];
     if (!run) throw new ImportRequestError('Import non trovato', 404);
     const stuck = run.status === 'running' && run.heartbeat_at && Date.now() - run.heartbeat_at.getTime() > 15 * 60_000;
@@ -327,8 +351,8 @@ export async function retryRun(runId: string) {
     const other = (await tx.query(`SELECT id FROM import_runs WHERE supplier_id = $1 AND status IN ('queued', 'running') AND id <> $2`, [run.supplier_id, runId])).rows[0];
     if (other) throw new ImportRequestError('C’è già un altro import attivo per questo fornitore', 409);
     await tx.query(`UPDATE import_runs SET status = 'queued', queued_at = now(), error = NULL, finished_at = NULL WHERE id = $1`, [runId]);
-    await enqueue(tx, 'import_run', { runId }, { queueName: `import:${run.supplier_id}`, jobKey: `import_run:${runId}`, maxAttempts: 3 });
-  });
+    await enqueue(tx, 'import_run', { runId }, { jobKey: `import_run:${runId}`, maxAttempts: 3 });
+  }));
 }
 
 export async function cancelRun(runId: string) {

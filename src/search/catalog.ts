@@ -66,12 +66,13 @@ export async function listProducts(query: CatalogQuery): Promise<{ items: Produc
     const barcode = /^\d{6,14}$/.test(digits) ? parseBarcode(digits) : null;
     const ids = async (sql: string, args: unknown[]) => (await pool.query(sql, args)).rows.map((r) => r.product_id as string);
     const skuIds = await ids(`SELECT DISTINCT product_id FROM supplier_offers WHERE lower(supplier_sku) = lower($1) LIMIT 1000`, [q]);
-    if (barcode) {
+    const gtinIds = barcode?.gtin14
+      ? await ids(`SELECT product_id FROM product_identifiers WHERE kind = 'gtin' AND value = $1 UNION SELECT product_id FROM supplier_offers WHERE gtin = $1`, [barcode.gtin14])
+      : [];
+    const rawIds = barcode ? await ids(`SELECT DISTINCT product_id FROM supplier_offers WHERE barcode_raw = $1 LIMIT 1000`, [digits]) : [];
+    // Digits that match no code (a model number, a partial EAN) are searched as text instead of returning nothing.
+    if (barcode && (gtinIds.length || rawIds.length || skuIds.length)) {
       mode = 'code';
-      const gtinIds = barcode.gtin14
-        ? await ids(`SELECT product_id FROM product_identifiers WHERE kind = 'gtin' AND value = $1 UNION SELECT product_id FROM supplier_offers WHERE gtin = $1`, [barcode.gtin14])
-        : [];
-      const rawIds = await ids(`SELECT DISTINCT product_id FROM supplier_offers WHERE barcode_raw = $1 LIMIT 1000`, [digits]);
       const g = p(gtinIds);
       const r = p(rawIds);
       const k = p(skuIds);
@@ -97,8 +98,9 @@ export async function listProducts(query: CatalogQuery): Promise<{ items: Produc
   }
   if (query.brand) where.push(`lower(p.brand) = lower(${p(query.brand)})`);
   if (query.categoryId) where.push(`p.category_id = ${p(query.categoryId)}`);
-  if (query.priceMin !== undefined) where.push(`p.best_unit_price >= ${p(query.priceMin)}`);
-  if (query.priceMax !== undefined) where.push(`p.best_unit_price <= ${p(query.priceMax)}`);
+  // The price filter is in euro (as the interface says): amounts in other currencies are not comparable.
+  if (query.priceMin !== undefined) where.push(`p.best_unit_price >= ${p(query.priceMin)} AND p.best_price_currency = 'EUR'`);
+  if (query.priceMax !== undefined) where.push(`p.best_unit_price <= ${p(query.priceMax)} AND p.best_price_currency = 'EUR'`);
   if (query.availability === 'available') where.push('p.available_supplier_count > 0');
   if (query.availability === 'unavailable') where.push('p.available_supplier_count = 0');
   if (query.gtin === 'present') where.push('p.has_gtin');

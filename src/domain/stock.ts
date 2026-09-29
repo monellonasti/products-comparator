@@ -35,8 +35,17 @@ export function resolveStock(input: StockInput): { quantity: number | null; stat
   return { quantity: input.quantity, status: textStatus === 'low_stock' ? 'low_stock' : 'in_stock' };
 }
 
+/** Largest quantity stored (int column); larger values are almost always a code in the wrong column. */
+export const MAX_STOCK_QUANTITY = 2_000_000_000;
+
 /** Parses a quantity cell that might contain qualitative text ("disponibile", ">10"). */
-export function splitQuantityCell(value: unknown): { quantity: number | null; text: string | null; negative: boolean } {
+export function splitQuantityCell(value: unknown): { quantity: number | null; text: string | null; negative: boolean; outOfRange?: boolean } {
+  const q = splitQuantityCellRaw(value);
+  if (q.quantity !== null && q.quantity > MAX_STOCK_QUANTITY) return { quantity: null, text: null, negative: false, outOfRange: true };
+  return q;
+}
+
+function splitQuantityCellRaw(value: unknown): { quantity: number | null; text: string | null; negative: boolean } {
   if (isEmptyCell(value)) return { quantity: null, text: null, negative: false };
   if (typeof value === 'number') {
     if (Number.isInteger(value) && value >= 0) return { quantity: value, text: null, negative: false };
@@ -58,8 +67,15 @@ export function isAvailable(status: StockStatus): boolean {
   return status === 'in_stock' || status === 'low_stock';
 }
 
+const MAX_LEAD_TIME_DAYS = 3650;
+
 /** Lead time in days (upper bound of a declared range). The raw text is always kept alongside. */
 export function parseLeadTimeDays(value: unknown): number | null {
+  const days = parseLeadTimeDaysRaw(value);
+  return days !== null && days <= MAX_LEAD_TIME_DAYS ? days : null;
+}
+
+function parseLeadTimeDaysRaw(value: unknown): number | null {
   if (isEmptyCell(value)) return null;
   if (typeof value === 'number') return Number.isInteger(value) && value >= 0 ? value : null;
   const s = String(value).toLowerCase().trim();

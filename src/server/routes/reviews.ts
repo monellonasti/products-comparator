@@ -27,6 +27,8 @@ async function productSide(id: string) {
   return { ...p, offers, identifiers };
 }
 
+const PAGE_SIZE = 50;
+
 export async function reviewRoutes(app: FastifyInstance) {
   app.get('/reviews', async (request) => {
     requireUser(request);
@@ -44,15 +46,20 @@ export async function reviewRoutes(app: FastifyInstance) {
         `SELECT r.id, r.kind, r.status, r.score, r.reasons, r.gtin, r.created_at, r.resolved_at, r.resolution, r.resolution_note, r.audit_event_id,
                 r.product_id, r.candidate_product_id, u.display_name AS resolved_by
            FROM match_reviews r LEFT JOIN users u ON u.id = r.resolved_by
-          WHERE ${where} ORDER BY r.created_at DESC LIMIT 50 OFFSET ${q.offset}`,
+          WHERE ${where} ORDER BY r.created_at DESC, r.id LIMIT ${PAGE_SIZE + 1} OFFSET ${q.offset}`,
         params,
       )
     ).rows;
+    const hasMore = rows.length > PAGE_SIZE;
+    rows.length = Math.min(rows.length, PAGE_SIZE);
     const cards = await productCards(rows.flatMap((r) => [r.product_id, r.candidate_product_id]));
     const counts = (await pool.query(`SELECT kind, count(*)::int AS n FROM match_reviews WHERE status = 'open' GROUP BY kind`)).rows;
     return {
       items: rows.map((r) => ({ ...r, kindLabel: KIND_LABELS[r.kind], gtin: r.gtin ? displayGtin(r.gtin) : null, product: cards.get(r.product_id), candidate: cards.get(r.candidate_product_id) })),
       openCounts: Object.fromEntries(counts.map((c) => [c.kind, c.n])),
+      offset: q.offset,
+      limit: PAGE_SIZE,
+      hasMore,
     };
   });
 

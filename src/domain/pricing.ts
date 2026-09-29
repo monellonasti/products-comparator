@@ -22,7 +22,7 @@ export interface PriceInput {
   stockQuantity: number | null;
 }
 
-export type NotComparableReason = 'inactive' | 'missing_price' | 'missing_currency' | 'unknown_vat' | 'gross_without_rate' | 'unknown_pack';
+export type NotComparableReason = 'inactive' | 'missing_price' | 'zero_price' | 'missing_currency' | 'unknown_vat' | 'gross_without_rate' | 'unknown_pack';
 
 export interface PriceEvaluation {
   offerId: string;
@@ -39,6 +39,7 @@ export interface PriceEvaluation {
 export const REASON_LABELS: Record<NotComparableReason, string> = {
   inactive: 'offerta non più presente nel listino',
   missing_price: 'prezzo mancante',
+  zero_price: 'prezzo pari a zero (su richiesta o segnaposto)',
   missing_currency: 'valuta mancante',
   unknown_vat: 'trattamento IVA non dichiarato',
   gross_without_rate: 'prezzo IVA inclusa senza aliquota',
@@ -46,10 +47,17 @@ export const REASON_LABELS: Record<NotComparableReason, string> = {
 };
 
 export function evaluatePrice(o: PriceInput): PriceEvaluation {
+  return evaluate(o).evaluation;
+}
+
+/** Evaluation plus the unit price at full internal precision (ranking must not depend on 4-decimal rounding). */
+function evaluate(o: PriceInput): { evaluation: PriceEvaluation; unit: Scaled | null } {
   const reasons: NotComparableReason[] = [];
   if (!o.active) reasons.push('inactive');
   const price = toScaled(o.price);
   if (price === null) reasons.push('missing_price');
+  // A 0 price is a placeholder ("su richiesta"), never the cheapest offer.
+  else if (price === 0n) reasons.push('zero_price');
   if (!o.currency) reasons.push('missing_currency');
 
   let net: Scaled | null = null;
@@ -68,13 +76,16 @@ export function evaluatePrice(o: PriceInput): PriceEvaluation {
   if (!o.unitsPerPack) reasons.push('unknown_pack');
   const unit = net !== null && o.unitsPerPack ? divInt(net, o.unitsPerPack) : null;
   return {
-    offerId: o.offerId,
-    comparable: reasons.length === 0,
-    reasons,
-    currency: o.currency,
-    netPackPrice: net === null ? null : fromScaled(net),
-    netUnitPrice: unit === null ? null : fromScaled(unit),
-    netDerivedFromGross: derived,
+    evaluation: {
+      offerId: o.offerId,
+      comparable: reasons.length === 0,
+      reasons,
+      currency: o.currency,
+      netPackPrice: net === null ? null : fromScaled(net),
+      netUnitPrice: unit === null ? null : fromScaled(unit),
+      netDerivedFromGross: derived,
+    },
+    unit,
   };
 }
 
@@ -101,7 +112,10 @@ export interface PriceSummary {
 
 export function summarizePrices(offers: PriceInput[]): PriceSummary {
   const active = offers.filter((o) => o.active);
-  const evaluated = active.map((o) => ({ o, e: evaluatePrice(o) }));
+  const evaluated = active.map((o) => {
+    const { evaluation, unit } = evaluate(o);
+    return { o, e: evaluation, unit };
+  });
   const comparable = evaluated.filter((x) => x.e.comparable);
   const byCurrency = new Map<string, number>();
   for (const { e } of comparable) byCurrency.set(e.currency!, (byCurrency.get(e.currency!) ?? 0) + 1);
@@ -111,7 +125,7 @@ export function summarizePrices(offers: PriceInput[]): PriceSummary {
 
   const inCurrency = comparable.filter((x) => x.e.currency === currency);
   const order = (a: (typeof inCurrency)[number], b: (typeof inCurrency)[number]) =>
-    compareScaled(toScaled(a.e.netUnitPrice)!, toScaled(b.e.netUnitPrice)!) ||
+    compareScaled(a.unit!, b.unit!) ||
     (a.o.moq ?? 1) - (b.o.moq ?? 1) ||
     a.o.supplierPriority - b.o.supplierPriority ||
     a.o.offerId.localeCompare(b.o.offerId);
@@ -130,7 +144,7 @@ export function summarizePrices(offers: PriceInput[]): PriceSummary {
   const best = purchasable[0] ? toBest(purchasable[0]) : null;
   const cheapestSoldOut = soldOut[0] ? toBest(soldOut[0]) : null;
   const cheaperSoldOut =
-    cheapestSoldOut && (!best || compareScaled(toScaled(cheapestSoldOut.unitPrice)!, toScaled(best.unitPrice)!) < 0)
+    soldOut[0] && (!purchasable[0] || compareScaled(soldOut[0].unit!, purchasable[0].unit!) < 0)
       ? cheapestSoldOut
       : null;
 
