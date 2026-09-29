@@ -4,9 +4,14 @@ dist
 .data*
 .env
 .env.*
+**/.env
+**/.env.*
 !.env.example
+!**/*.example
+.portfolio
+.claude
 bench-results
 fixtures/demo/images
 fixtures/demo/queries
 .git
-*.log
+**/*.log

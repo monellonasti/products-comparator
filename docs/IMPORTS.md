@@ -31,12 +31,12 @@ Il file originale resta nello storage (`imports/<run>/<sha256>`) per la tracciab
 |---|---|
 | `sku` **obbligatorio** | Chiave di upsert. Riga senza SKU = errore (non importata). |
 | `barcode` | Vedi [IDENTITY.md](IDENTITY.md). Un EAN non valido è un avviso, non un errore: la riga entra come prodotto distinto. |
-| `price`, `currency`, `vat_rate` | Prezzo non interpretabile = **errore di riga**: si mantiene il dato precedente di quello SKU. IVA dichiarata a livello di file/fornitore (netto, lordo con aliquota, sconosciuta). |
+| `price`, `currency`, `vat_rate` | Prezzo non interpretabile o fuori scala (oltre 9.999.999.999, tipicamente un EAN finito nella colonna sbagliata) = **errore di riga**: si mantiene il dato precedente di quello SKU e il resto del listino viene applicato. Prezzo 0 = avviso: l'offerta entra ma non partecipa al confronto prezzi ("su richiesta"). IVA dichiarata a livello di file/fornitore (netto, lordo con aliquota, sconosciuta). Una cella Excel in formato percentuale (0,22) vale 22%; un'aliquota scritta come frazione in una cella di testo è un errore di riga. |
 | `units_per_pack` | Pezzi coperti dal prezzo (es. 50 € per confezione da 5). Il default si dichiara nel wizard; se non è dichiarato il prezzo non è confrontabile per unità. |
 | `moq`, scaglioni (`tiers`) | Conservati e mostrati. Il miglior prezzo usa il prezzo base. |
-| `stock_quantity`, `availability` | Vuoto = sconosciuto, `0` = esaurito, testo ("disponibile", ">10", "in arrivo") = stato qualitativo senza inventare quantità. Giacenza negativa = esaurito, con avviso. |
-| `lead_time` | Testo originale conservato; giorni ricavati prendendo il limite superiore ("3-5 giorni" → 5). |
-| `image_urls` | Più colonne o separatori (`|`, `;`, spazi). Solo http/https, al massimo 12 per riga. |
+| `stock_quantity`, `availability` | Vuoto = sconosciuto, `0` = esaurito, testo ("disponibile", ">10", "in arrivo") = stato qualitativo senza inventare quantità. Giacenza negativa = esaurito, con avviso. Giacenza oltre 2 miliardi = quantità non registrata, con avviso. |
+| `lead_time` | Testo originale conservato; giorni ricavati prendendo il limite superiore ("3-5 giorni" → 5), solo fino a 3650. |
+| `image_urls` | Più colonne o separatori (`|`, `;`, spazi). Solo http/https, al massimo 12 per riga e 2048 caratteri per URL. In un XLSX una cella con testo "Foto" e un collegamento usa la destinazione del collegamento; in tutte le altre colonne vale il testo visibile (uno SKU con link resta lo SKU). |
 | attributi | colore, misura, variante, contenuto netto, pezzi, materiale (usati nei controlli d'identità). |
 
 ## Upsert, idempotenza e ordine
@@ -45,7 +45,7 @@ Il file originale resta nello storage (`imports/<run>/<sha256>`) per la tracciab
 - **Riga invariata**: `row_hash` (SHA-256 della serializzazione stabile dei campi normalizzati) uguale a quello salvato. Si aggiornano solo `last_seen_at`, `last_import_id` e `source_as_of` (conferma della freschezza), senza nuove immagini, job o embedding (caso E, verificato anche nell'e2e).
 - **Immagini**: `image_sources` è unico per `(supplier_id, url)`; il download si accoda solo per URL nuovi (`job_key` = `image_fetch:<id>`). I byte identici vengono deduplicati per SHA-256 su `image_assets`.
 - **Fuori ordine**: ogni import ha una data dei dati (`as_of`, di default l'ora di caricamento). Se una riga è più vecchia del dato salvato (`source_as_of`) viene saltata con avviso `outdated_row`.
-- **Sovrapposizioni**: al massimo un import `queued/running` per fornitore (indice unico parziale); coda graphile-worker `import:<fornitore>` serializzata; lock di sessione per singolo run, così l'esecuzione non parte due volte.
+- **Sovrapposizioni**: al massimo un import `queued/running` per fornitore (indice unico parziale: chi perde la corsa riceve un 409, anche un feed che parte insieme a un caricamento manuale); lock di sessione per singolo run, così l'esecuzione non parte due volte. Nessuna coda graphile per fornitore: una coda bloccata da un worker terminato di colpo resterebbe ferma per ore (D-023).
 - **SKU duplicato nello stesso file**: viene applicata la prima occorrenza, le successive sono errori `duplicate_sku`.
 
 ## Snapshot e delta
@@ -56,12 +56,12 @@ Il file originale resta nello storage (`imports/<run>/<sha256>`) per la tracciab
   2. la data dei dati è precedente all'ultimo snapshot applicato;
   3. il file contiene meno del 50% dei codici attualmente attivi (probabile file troncato).
   
-  Le righe con errori ma con SKU valido contano come "presenti". Un'offerta che ricompare viene riattivata, non duplicata.
+  Le righe con errori ma con SKU valido contano come "presenti". Un'offerta che ricompare viene riattivata, non duplicata. Il confronto delle date vale anche per la singola offerta: uno snapshot non disattiva un'offerta aggiornata da un delta con data più recente, e un delta più vecchio di uno snapshot non riattiva un'offerta che quello snapshot ha tolto.
 - **Import fallito** (caso I): lo stato diventa `failed` con il messaggio d'errore. Il fornitore risulta con l'ultimo import fallito e UI e scheda mostrano i suoi dati come "non aggiornati". Le righe non elaborate mantengono i dati precedenti. Con "Riprova" l'import riparte dal checkpoint: lo staging viene conservato finché l'import non riesce.
 
 ## Retry, errori e ripresa
 
-- Errori transitori (DB, storage): il job fallisce e graphile-worker lo ritenta con backoff esponenziale, fino a 3 tentativi per gli import. Errori permanenti (file illeggibile, colonne mappate assenti) non vengono ritentati.
+- Errori transitori (DB, storage): il job fallisce e graphile-worker lo ritenta con backoff esponenziale, fino a 3 tentativi per gli import. Errori permanenti (file illeggibile, colonne mappate assenti, un valore che il database rifiuta come dato non valido) non vengono ritentati: l'import fallisce con il motivo.
 - Un import fermo da più di 15 minuti (heartbeat) si può riprovare dalla UI.
 - Download immagini: coda per host (`fetch:<host>:<shard>`, al massimo `IMAGE_FETCH_PER_HOST` in parallelo per host), 6 tentativi con backoff. 404/403 e i blocchi SSRF sono definitivi (`failed`/`blocked`) e si possono ritentare dalle Impostazioni.
 

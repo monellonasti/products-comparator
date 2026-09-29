@@ -12,6 +12,7 @@ services:
       POSTGRES_DB: comparator
     volumes:
       - pgdata:/var/lib/postgresql
+    shm_size: 1g
     ports:
       - "127.0.0.1:5432:5432"
     healthcheck:
@@ -60,6 +61,9 @@ services:
     environment: *appenv
     volumes:
       - models:/app/.models
+    healthcheck:
+      disable: true
+    stop_grace_period: 5m
     depends_on:
       postgres: { condition: service_healthy }
       seaweedfs: { condition: service_started }

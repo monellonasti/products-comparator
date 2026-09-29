@@ -108,3 +108,15 @@ Ogni voce: contesto → decisione → conseguenze. Le date sono assolute.
 - **Più realismo**: ogni prodotto ha un prezzo di riferimento e ogni fornitore applica il proprio scostamento (prima i prezzi erano casuali e indipendenti, fino a 10 volte di differenza per lo stesso articolo). Tre articoli esistono anche come gemelli OEM a marchio del grossista ("Beta Essentials", "Linea Gamma"), con EAN diverso e prezzo più basso: è il caso che la ricerca per foto deve far emergere.
 - **Onestà**: sui dati sintetici i gemelli compaiono tra i "simili" ma non in cima. Il benchmark è stato rifatto sul nuovo set e i numeri precedenti restano documentati come riferiti al set vecchio.
 
+## D-023 · 2026-09-29 · Audit operativo: scelte che cambiano il comportamento
+- **Contesto**: audit completo (sicurezza, integrità dei dati, import, ricerca, frontend, configurazione). Qui solo le correzioni che cambiano un comportamento visibile o un contratto; il dettaglio è in PROGRESS.md.
+- **Prezzo 0** non entra nel confronto (motivo `zero_price`): è un segnaposto ("su richiesta"), non l'offerta migliore. Il miglior prezzo si sceglie sul valore esatto, non su quello arrotondato a 4 decimali.
+- **Valori fuori scala** (prezzo, giacenza, consegna, URL, codice) diventano errori o avvisi di riga: un solo valore non memorizzabile non fa più fallire, e ritentare all'infinito, l'intero listino. Gli errori di dato del database (classe 22) non vengono ritentati.
+- **Aliquota IVA**: una cella Excel in percentuale (0,22) vale 22%; una frazione scritta a mano è un errore, non un'ipotesi.
+- **Import senza coda per fornitore** in graphile-worker: l'indice unico basta a garantire un import attivo per fornitore, e una coda bloccata da un worker terminato restava ferma 4 ore. La corsa tra due avvii dà 409.
+- **Snapshot**: la disattivazione confronta anche la data della singola offerta (un delta più recente vince).
+- **ID non valido nell'URL** = 404 "Risorsa non trovata" (prima 400 con il dettaglio tecnico in inglese). Messaggi di validazione di zod in italiano.
+- **Unione di prodotti**: prende gli stessi lock per GTIN degli import, prima dei lock di riga, così un import non può agganciare un'offerta a un prodotto in corso di unione.
+- **Feed**: agli operatori si mostra solo l'host dell'URL (il percorso può contenere un token); il nome del file salvato usa l'ultimo segmento solo se sembra un nome di file. Timeout totale del download, non solo di inattività.
+- **Manutenzione**: lo sweep degli oggetti orfani si ferma se il catalogo è vuoto o se troppi oggetti risultano senza riga (database sbagliato o appena ripristinato); le immagini rimaste "in attesa" senza job vengono riaccodate; le foto di ricerche fallite vengono cancellate.
+- **Filtro prezzo** del catalogo solo in euro, come dice l'interfaccia.

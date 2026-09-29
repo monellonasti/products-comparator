@@ -150,11 +150,11 @@ Per provare il feed e il report delle variazioni: nella pagina del fornitore *Al
 
 ## Test e benchmark
 
-| Comando | Cosa verifica | Esito al 2026-09-28 |
+| Comando | Cosa verifica | Esito al 2026-09-29 |
 |---|---|---|
 | `pnpm typecheck` | TypeScript server + web | pulito |
-| `pnpm test:unit` | GTIN, prezzi, stock, parser, SSRF, barcode, template, pianificazione feed, cifratura, variazioni, protezione XLSX | 69/69 |
-| `pnpm test` | unit + integrazione su Postgres reale (`TEST_DATABASE_URL`, **viene svuotato**), feed, ricontrollo immagini e XLSX rifiutati inclusi | 117/117 |
+| `pnpm test:unit` | GTIN, prezzi, stock, parser, SSRF, barcode, template, pianificazione feed, cifratura, variazioni, protezione XLSX, valori fuori scala, metriche | 90/90 |
+| `pnpm test` | unit + integrazione su Postgres reale (`TEST_DATABASE_URL`, **viene svuotato**), feed, ricontrollo immagini, XLSX rifiutati e casi dell'audit inclusi | 147/147 |
 | `pnpm test:e2e` | flusso completo con HTTP, S3, download e modello reali | 6/6 |
 | `pnpm bench:visual -- --set fixtures/demo/queries.json [--crop]` | Recall@1/@5, falsi match, astensione, soglie suggerite | sintetico, SigLIP 2: R@5 92,9% a foto intera, 100% con ritaglio (CLIP B/32 sul set precedente: 78,6% / 100%) |
 | `pnpm bench:load -- --products 60000 --users 5` | latenza API e ricerca foto su 60.000 vettori (DB `comparator_bench` separato) | API p95 150 ms; foto p95 4,8 s lato server con 5 utenti |

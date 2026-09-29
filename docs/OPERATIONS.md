@@ -6,32 +6,33 @@
 
 1. VM Linux (x86-64 o ARM64) con 4-8 vCPU e 8-16 GB di RAM (vedi [VISUAL_SEARCH.md](VISUAL_SEARCH.md)), Docker Engine con il plugin compose e firewall aperto solo su 22/80/443.
 2. Bucket S3 **privato** (provider gestito) con credenziali limitate a quel bucket. In alternativa, SeaweedFS su un volume dedicato.
-3. `deploy/.env.production` preparato da `deploy/.env.production.example`, con `chmod 600`, mai nel repository. Password e token generati in modo casuale (`openssl rand -base64 32`).
+3. `deploy/.env.production` preparato da `deploy/.env.production.example`, con `chmod 600`, mai nel repository. Password e token generati in modo casuale: `openssl rand -hex 32` per la password di Postgres (un `/` o un `+` del base64 romperebbe `DATABASE_URL`), `openssl rand -base64 32` per `SECRETS_KEY`. In produzione l'app non parte senza `PUBLIC_ORIGIN` in https e con una `SECRETS_KEY` malformata.
 4. `docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.production up -d --build`. Solo Caddy pubblica le porte 80/443, con HTTPS automatico. Postgres, API e worker restano sulla rete interna di compose.
-5. Primo amministratore: `docker compose -f deploy/docker-compose.prod.yml exec api node src/scripts/create-user.ts --email … --name … --role admin` (password richiesta a terminale o via `COMPARATOR_PASSWORD`).
-6. Pesi del modello: al primo avvio vengono scaricati nel volume `models`, con revisione fissata. In un ambiente senza Internet si costruisce l'immagine con `--build-arg PREFETCH_MODEL=true` oppure si copia il volume, poi si imposta `VISION_ALLOW_REMOTE_MODELS=false`.
+5. Primo amministratore: `docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.production exec api node src/scripts/create-user.ts --email … --name … --role admin` (password richiesta a terminale o via `COMPARATOR_PASSWORD`). Tutti i comandi compose di produzione vogliono `--env-file deploy/.env.production`: senza, l'interpolazione di `POSTGRES_USER` e `APP_DOMAIN` fallisce.
+6. Pesi del modello: al primo avvio vengono scaricati nel volume `models`, con revisione fissata. In un ambiente senza Internet si costruisce l'immagine con `PREFETCH_MODEL=true` nel file di ambiente (passato come argomento di build dal compose) oppure si copia il volume, poi si imposta `VISION_ALLOW_REMOTE_MODELS=false`.
 7. Verifiche: `https://<dominio>/healthz` (processo), `/readyz` (DB e storage; lo stato della visione è solo informativo), Impostazioni › Stato del sistema.
 
-Aggiornamenti: `git pull`, poi `docker compose … up -d --build`. Le migrazioni si applicano all'avvio con advisory lock, quindi API e worker possono ripartire insieme. Rollback: rimettere la versione precedente dell'immagine. Le migrazioni sono solo additive, per cui un rollback applicativo con schema più recente è sicuro finché una migrazione non rimuove colonne (da valutare caso per caso).
+Aggiornamenti: `git pull`, nuovo `APP_VERSION` nel file di ambiente, poi `docker compose … up -d --build`. Le migrazioni si applicano all'avvio con advisory lock, quindi API e worker possono ripartire insieme. Il worker ha 5 minuti per chiudere i job in corso. Rollback: rimettere il valore precedente di `APP_VERSION` e rilanciare `up -d` (le immagini sono taggate, non serve ricostruire). Le migrazioni sono solo additive, per cui un rollback applicativo con schema più recente è sicuro finché una migrazione non rimuove colonne (da valutare caso per caso).
 
 ## Backup e ripristino
 
 | Cosa | Come | Frequenza consigliata |
 |---|---|---|
-| PostgreSQL (dati, audit, code, vettori) | `docker compose exec -T postgres pg_dump -U comparator -Fc comparator > backup/comparator-$(date +%F).dump` | ogni notte più prima di ogni aggiornamento; conservazione 14-30 giorni, copia fuori sede |
-| Object storage (immagini, file di import) | versioning e lifecycle del provider, oppure `rclone sync s3:bucket backup:bucket` | ogni notte |
+| PostgreSQL (dati, audit, code, vettori) | `docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.production exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -Fc comparator' > backup/comparator-$(date +%F).dump` | ogni notte più prima di ogni aggiornamento; conservazione 14-30 giorni, copia fuori sede |
+| Object storage (immagini, file di import) | versioning e lifecycle del provider, oppure `rclone copy s3:bucket backup:bucket` (**copy**, non sync: una cancellazione per errore non deve propagarsi al backup) | ogni notte |
 | Configurazione | `deploy/.env.production` in un password manager o secret store aziendale | a ogni modifica |
 | **`SECRETS_KEY`** | insieme ai backup del DB, nel password manager: senza la chiave le credenziali dei feed salvate non sono leggibili e vanno reinserite | a ogni rotazione |
 
 Ripristino (provato in V1 solo come comandi, **non esercitato**):
 ```bash
-docker compose -f deploy/docker-compose.prod.yml stop api worker
-docker compose -f deploy/docker-compose.prod.yml exec -T postgres dropdb -U comparator comparator
-docker compose -f deploy/docker-compose.prod.yml exec -T postgres createdb -U comparator comparator
-docker compose -f deploy/docker-compose.prod.yml exec -T postgres pg_restore -U comparator -d comparator --no-owner < backup/comparator-AAAA-MM-GG.dump
-docker compose -f deploy/docker-compose.prod.yml start api worker
+DC="docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.production"
+$DC stop api worker
+$DC exec -T postgres sh -c 'dropdb -U "$POSTGRES_USER" comparator && createdb -U "$POSTGRES_USER" comparator'
+$DC exec -T postgres sh -c 'pg_restore -U "$POSTGRES_USER" -d comparator --no-owner' < backup/comparator-AAAA-MM-GG.dump
+rclone copy backup:bucket s3:bucket   # oggetti del bucket, se persi
+$DC start api worker
 ```
-Le immagini sono content-addressed: dopo il ripristino di DB e bucket basta verificare `/readyz` e la copertura dell'indice. I vettori si possono sempre rigenerare dalle derivate `infer.jpg` con `pnpm model:prepare`. Da fare prima della produzione: una prova di ripristino completa, cronometrata.
+Le immagini sono content-addressed: dopo il ripristino di DB e bucket basta verificare `/readyz` e la copertura dell'indice. Il job di manutenzione non cancella oggetti "orfani" se il catalogo è vuoto o se troppi oggetti risultano senza riga nel database (un DB sbagliato o appena creato), per non svuotare il bucket dopo un ripristino parziale. I vettori si possono sempre rigenerare dalle derivate `infer.jpg` con `pnpm model:prepare`. Da fare prima della produzione: una prova di ripristino completa, cronometrata.
 
 ## Monitoraggio
 

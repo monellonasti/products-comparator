@@ -1,6 +1,7 @@
 # Production-oriented stack for a single VM. Only the reverse proxy publishes ports (80/443).
 # Secrets come from deploy/.env.production (NOT committed) — see docs/OPERATIONS.md.
-# Object storage: prefer a managed S3 bucket (private). The bundled SeaweedFS service is optional.
+# Object storage: a managed S3 bucket (private); no storage service is bundled in this file.
+# Every command needs the env file (it provides POSTGRES_USER, APP_DOMAIN, APP_VERSION):
 #   docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.production up -d --build
 name: products-comparator
 services:
@@ -12,6 +13,8 @@ services:
       POSTGRES_DB: comparator
     volumes:
       - pgdata:/var/lib/postgresql
+    # Parallel HNSW index builds (after a restore) use shared memory: Docker's 64 MB default is too small.
+    shm_size: 1g
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d comparator"]
@@ -19,7 +22,12 @@ services:
       retries: 10
 
   api:
-    build: ..
+    # Tagged image: a rollback is `APP_VERSION=<previous> docker compose … up -d` without rebuilding.
+    image: products-comparator:${APP_VERSION:-latest}
+    build:
+      context: ..
+      args:
+        PREFETCH_MODEL: ${PREFETCH_MODEL:-false}
     env_file: .env.production
     environment:
       NODE_ENV: production
@@ -32,7 +40,12 @@ services:
       postgres: { condition: service_healthy }
 
   worker:
-    build: ..
+    # Same image and build as the API (the second build is served from the cache).
+    image: products-comparator:${APP_VERSION:-latest}
+    build:
+      context: ..
+      args:
+        PREFETCH_MODEL: ${PREFETCH_MODEL:-false}
     command: ["node", "src/worker/index.ts"]
     env_file: .env.production
     environment:
@@ -40,6 +53,11 @@ services:
       VISION_CACHE_DIR: /app/.models
     volumes:
       - models:/app/.models
+    # The image healthcheck probes the HTTP server, which the worker does not run.
+    healthcheck:
+      disable: true
+    # Imports and feed downloads take minutes: let running jobs finish on "docker compose up/stop".
+    stop_grace_period: 5m
     restart: unless-stopped
     depends_on:
       postgres: { condition: service_healthy }
