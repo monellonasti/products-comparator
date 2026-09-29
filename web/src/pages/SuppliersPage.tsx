@@ -84,7 +84,7 @@ export default function SuppliersPage() {
                   <td>{s.defaultVatTreatment === 'net' ? 'IVA esclusa' : s.defaultVatTreatment === 'gross' ? `IVA inclusa ${s.defaultVatRate ?? ''}%` : <span className="badge badge-warn">IVA non dichiarata</span>}</td>
                   <td className="small">
                     {s.stats && s.stats.imagesFailed > 0 && <div>{s.stats.imagesFailed} immagini non scaricabili</div>}
-                    {s.stats && s.stats.unmappedCategories > 0 && <div>{s.stats.unmappedCategories} categorie da mappare</div>}
+                    {s.stats && s.stats.unmappedCategories > 0 && <div>{s.stats.unmappedCategories} {s.stats.unmappedCategories === 1 ? 'categoria' : 'categorie'} da mappare</div>}
                   </td>
                 </tr>
               ))}

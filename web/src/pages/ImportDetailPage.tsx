@@ -25,10 +25,15 @@ export default function ImportDetailPage() {
   const q = useQuery({
     queryKey: ['import', id],
     queryFn: () => api.get<{ run: ImportRun; issueSummary: Array<{ severity: string; code: string; message: string; count: number }>; images: { pending: number; fetched: number; failed: number } }>(`/api/imports/${id}`),
-    refetchInterval: (query) => (['queued', 'running'].includes(query.state.data?.run.status ?? '') || (query.state.data?.images.pending ?? 0) > 0 ? 2500 : false),
+    // Fast while rows are being processed; images alone can take hours to download, so poll them slowly.
+    refetchInterval: (query) =>
+      ['queued', 'running'].includes(query.state.data?.run.status ?? '') ? 2500 : (query.state.data?.images.pending ?? 0) > 0 ? 15_000 : false,
   });
+  // The worker writes row issues while the run progresses: the status is part of the key so the table
+  // is re-read when the run moves on (e.g. queued → running → succeeded) instead of staying empty.
+  const runStatus = q.data?.run.status;
   const issues = useQuery({
-    queryKey: ['import-issues', id, severity, offset],
+    queryKey: ['import-issues', id, severity, offset, runStatus],
     queryFn: () => api.get<{ items: Array<{ row_number: number; severity: string; field: string | null; code: string; message: string; value: string | null }>; total: number }>(`/api/imports/${id}/issues${qs({ severity, offset })}`),
   });
   const action = useMutation({

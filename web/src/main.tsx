@@ -1,11 +1,11 @@
 import { StrictMode, lazy, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
+import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './auth';
 import { ApiError } from './api';
 import { Layout } from './components/Layout';
-import { Spinner } from './components/ui';
+import { Spinner, useDocumentTitle } from './components/ui';
 import { LoginPage } from './pages/LoginPage';
 import { CatalogPage } from './pages/CatalogPage';
 import './styles.css';
@@ -34,17 +34,40 @@ const queryClient = new QueryClient({
 
 function Protected() {
   const { user, loading } = useAuth();
+  const location = useLocation();
   if (loading) return <Spinner />;
-  if (!user) return <Navigate to="/accesso" replace />;
+  // Remember the requested page (a shared link, an expired session) to return there after the login.
+  if (!user) return <Navigate to="/accesso" replace state={{ from: location }} />;
   return <Layout />;
 }
 
-function App() {
+function LoginRoute() {
   const { user } = useAuth();
+  const location = useLocation();
+  if (!user) return <LoginPage />;
+  const from = (location.state as { from?: { pathname?: string; search?: string; hash?: string } } | null)?.from;
+  const path = from?.pathname ?? '';
+  const target = path.startsWith('/') && !path.startsWith('//') && path !== '/accesso' ? `${path}${from?.search ?? ''}${from?.hash ?? ''}` : '/';
+  return <Navigate to={target} replace />;
+}
+
+function NotFound() {
+  useDocumentTitle('Pagina non trovata');
+  return (
+    <div className="page">
+      <h1>Pagina non trovata</h1>
+      <p>
+        L’indirizzo non corrisponde a nessuna pagina. <Link to="/">Torna al catalogo</Link>
+      </p>
+    </div>
+  );
+}
+
+function App() {
   return (
     <Suspense fallback={<Spinner />}>
       <Routes>
-        <Route path="/accesso" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
+        <Route path="/accesso" element={<LoginRoute />} />
         <Route element={<Protected />}>
           <Route index element={<CatalogPage />} />
           <Route path="prodotti/:id" element={<ProductPage />} />
@@ -58,7 +81,7 @@ function App() {
           <Route path="corrispondenze" element={<ReviewsPage />} />
           <Route path="corrispondenze/:id" element={<ReviewDetailPage />} />
           <Route path="impostazioni" element={<SettingsPage />} />
-          <Route path="*" element={<div className="page"><h1>Pagina non trovata</h1></div>} />
+          <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
     </Suspense>

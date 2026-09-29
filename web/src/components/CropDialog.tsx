@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import ReactCrop, { type PercentCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
-import { Modal } from './ui';
+import { ErrorNotice, Modal } from './ui';
 
 export interface RelativeCrop {
   x: number;
@@ -12,7 +12,7 @@ export interface RelativeCrop {
 
 /** Optional crop before searching: the user can isolate the product from a cluttered background. */
 export function CropDialog({
-  open, imageSrc, initial, onCancel, onConfirm, busy,
+  open, imageSrc, initial, onCancel, onConfirm, busy, error,
 }: {
   open: boolean;
   imageSrc: string | null;
@@ -20,6 +20,8 @@ export function CropDialog({
   onCancel: () => void;
   onConfirm: (crop: RelativeCrop | null) => void;
   busy?: boolean;
+  /** Shown inside the dialog: the page behind a modal dialog is inert and hidden from the user. */
+  error?: unknown;
 }) {
   const [crop, setCrop] = useState<PercentCrop | undefined>();
   useEffect(() => {
@@ -48,6 +50,7 @@ export function CropDialog({
         </>
       }
     >
+      <ErrorNotice error={error} />
       <p className="muted small">Trascina sulla foto per selezionare solo il prodotto: migliora i risultati quando lo sfondo è confuso o ci sono più oggetti.</p>
       {imageSrc && (
         <div className="crop-area">

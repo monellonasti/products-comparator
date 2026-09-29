@@ -24,6 +24,10 @@ export default function SupplierDetailPage() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['category-mappings', id] });
       void qc.invalidateQueries({ queryKey: ['facets'] });
+      // The mapping changes the category of this supplier's products: catalogue, product pages, counters.
+      void qc.invalidateQueries({ queryKey: ['products'] });
+      void qc.invalidateQueries({ queryKey: ['product'] });
+      void qc.invalidateQueries({ queryKey: ['suppliers'] });
     },
   });
   useDocumentTitle(s.data?.supplier.name ?? 'Fornitore');
@@ -94,7 +98,7 @@ export default function SupplierDetailPage() {
                     <td className="num">{m.offers}</td>
                     <td>
                       {isAdmin ? (
-                        <select className="input" aria-label={`Categoria per ${m.raw_category}`} value={m.category_id ?? ''} onChange={(e) => setMapping.mutate({ rawCategory: m.raw_category, categoryId: e.target.value || null })}>
+                        <select className="input" aria-label={`Categoria per ${m.raw_category}`} value={m.category_id ?? ''} disabled={setMapping.isPending} onChange={(e) => setMapping.mutate({ rawCategory: m.raw_category, categoryId: e.target.value || null })}>
                           <option value="">— da mappare —</option>
                           {cats.data?.items.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>

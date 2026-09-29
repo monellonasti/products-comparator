@@ -118,7 +118,10 @@ label { font-weight: 500; font-size: 14px; }
 /* ---------------------------------------------------------------- catalogue grid */
 .catalog-layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 16px; align-items: start; }
 @media (max-width: 900px) { .catalog-layout { grid-template-columns: 1fr; } }
-.filters { position: sticky; top: 72px; }
+/* Sticky only while it fits: a filter panel taller than the viewport scrolls on its own. */
+.filters { position: sticky; top: 72px; max-height: calc(100vh - 88px); overflow-y: auto; }
+.decimal-input { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+#main:focus { outline: none; }
 .filters .field + .field { margin-top: 12px; }
 .filters-toggle { display: none; }
 @media (max-width: 900px) { .filters { position: static; } .filters-toggle { display: inline-flex; } .filters.collapsed .filters-body { display: none; } }

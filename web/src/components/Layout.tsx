@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from 'react-router';
+import { useEffect, useRef } from 'react';
+import { NavLink, Outlet, useLocation, useNavigationType } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../auth';
 import { api } from '../api';
@@ -11,6 +12,21 @@ export function Layout() {
     refetchInterval: 60_000,
   });
   const open = Object.values(reviews.data?.openCounts ?? {}).reduce((a, b) => a + b, 0);
+  // On a new page start from the top and move focus to the content (screen readers announce it). Back and
+  // forward (POP) keep the browser's scroll position, e.g. returning to the catalog from a product.
+  const { pathname } = useLocation();
+  const navigationType = useNavigationType();
+  const mainRef = useRef<HTMLElement>(null);
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    if (navigationType === 'POP') return;
+    window.scrollTo(0, 0);
+    mainRef.current?.focus({ preventScroll: true });
+  }, [pathname, navigationType]);
   return (
     <>
       <a className="skip-link" href="#main">
@@ -40,7 +56,7 @@ export function Layout() {
           </div>
         </div>
       </header>
-      <main id="main" tabIndex={-1}>
+      <main id="main" tabIndex={-1} ref={mainRef}>
         <Outlet />
       </main>
     </>

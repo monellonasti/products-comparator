@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api, qs } from '../api';
 import { useAuth } from '../auth';
 import type { ImportRun } from '../types';
-import { ErrorNotice, Spinner, useDocumentTitle } from '../components/ui';
+import { ErrorNotice, Pager, Spinner, useDocumentTitle } from '../components/ui';
 import { bytes, dateTime } from '../format';
 
 const STATUS: Record<ImportRun['status'], [string, string]> = {
@@ -38,9 +38,10 @@ export default function ImportsPage() {
   const { isAdmin } = useAuth();
   const [params, setParams] = useSearchParams();
   const status = params.get('status') ?? '';
+  const offset = Math.max(0, Number(params.get('offset')) || 0);
   const q = useQuery({
-    queryKey: ['imports', { status }],
-    queryFn: () => api.get<{ items: ImportRun[] }>(`/api/imports${qs({ status })}`),
+    queryKey: ['imports', { status, offset }],
+    queryFn: () => api.get<{ items: ImportRun[]; offset: number; limit: number; hasMore: boolean }>(`/api/imports${qs({ status, offset: offset || undefined })}`),
     refetchInterval: (query) => (query.state.data?.items.some((r) => r.status === 'queued' || r.status === 'running') ? 3000 : 30_000),
   });
   return (
@@ -98,6 +99,19 @@ export default function ImportsPage() {
             </tbody>
           </table>
         </div>
+      )}
+      {q.data && (
+        <Pager
+          offset={q.data.offset}
+          limit={q.data.limit}
+          hasMore={q.data.hasMore}
+          onChange={(o) => {
+            const n = new URLSearchParams(params);
+            if (o) n.set('offset', String(o));
+            else n.delete('offset');
+            setParams(n);
+          }}
+        />
       )}
     </div>
   );

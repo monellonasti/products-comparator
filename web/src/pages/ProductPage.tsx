@@ -460,7 +460,7 @@ function MergeModal({ detail, onClose, onDone }: { detail: ProductDetail; onClos
       footer={
         <>
           <button className="btn" onClick={onClose}>Annulla</button>
-          <button className="btn btn-primary" disabled={!selected || m.isPending} onClick={() => m.mutate()}>Unisci</button>
+          <button className="btn btn-primary" disabled={!selectedCard || m.isPending} onClick={() => m.mutate()}>Unisci</button>
         </>
       }
     >
@@ -468,7 +468,8 @@ function MergeModal({ detail, onClose, onDone }: { detail: ProductDetail; onClos
         <Notice kind="warning">
           Unisci solo prodotti identici (stessa marca, variante e confezione) con un’evidenza concreta, ad esempio lo stesso codice del produttore. Varianti e multipack devono restare separati. L’operazione è annullabile dallo storico.
         </Notice>
-        <form className="row" onSubmit={(e) => { e.preventDefault(); setTerm(q.trim()); }}>
+        {/* A new search clears the selection: "Unisci" must never act on a product no longer on screen. */}
+        <form className="row" onSubmit={(e) => { e.preventDefault(); setTerm(q.trim()); setSelected(null); }}>
           <input className="input" style={{ flex: 1 }} aria-label="Cerca il prodotto da unire" placeholder="Nome, EAN o codice fornitore" value={q} onChange={(e) => setQ(e.target.value)} />
           <button className="btn" type="submit">Cerca</button>
         </form>

@@ -51,8 +51,10 @@ export function PhotoSearchBox({ onTextSearch, initialText }: { onTextSearch: (q
   // Paste an image anywhere on the page (Ctrl/Cmd+V), where the browser supports it.
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
+      // In a text field a normal text paste wins; a pasted screenshot (no text) still starts a photo search.
       const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+      const inTextField = !!target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA');
+      if (inTextField && e.clipboardData?.types.includes('text/plain')) return;
       const item = [...(e.clipboardData?.items ?? [])].find((i) => i.kind === 'file' && i.type.startsWith('image/'));
       if (item) {
         e.preventDefault();
@@ -143,14 +145,16 @@ export function PhotoSearchBox({ onTextSearch, initialText }: { onTextSearch: (q
           </div>
         </div>
       </div>
-      {error ? <div style={{ marginTop: 12 }}><ErrorNotice error={error} /></div> : null}
+      {error && !pending ? <div style={{ marginTop: 12 }}><ErrorNotice error={error} /></div> : null}
       <CropDialog
         open={!!pending}
         imageSrc={pending?.url ?? null}
         busy={busy}
+        error={pending ? error : null}
         onCancel={() => {
           if (pending) URL.revokeObjectURL(pending.url);
           setPending(null);
+          setError(null);
         }}
         onConfirm={(crop) => void search(crop)}
       />

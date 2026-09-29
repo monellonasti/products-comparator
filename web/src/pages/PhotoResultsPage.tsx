@@ -12,9 +12,15 @@ const GROUPS: Array<{ key: Candidate['group']; title: string; hint: string }> = 
   { key: 'similar', title: 'Prodotti simili', hint: 'Alternative con aspetto simile: non sono lo stesso prodotto.' },
 ];
 
+// Keyed by search id: "Ritaglia di nuovo" navigates to a new search, which must start with fresh local state
+// (feedback sent, dialog) instead of inheriting the previous search's.
 export default function PhotoResultsPage() {
-  useDocumentTitle('Risultati ricerca per foto');
   const { id } = useParams();
+  return <PhotoResults key={id} id={id!} />;
+}
+
+function PhotoResults({ id }: { id: string }) {
+  useDocumentTitle('Risultati ricerca per foto');
   const location = useLocation();
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -45,6 +51,8 @@ export default function PhotoResultsPage() {
   if (search.isLoading) return <Spinner label="Caricamento risultati…" />;
   if (search.isError) return <div className="page"><ErrorNotice error={search.error} /></div>;
   const r = search.data!;
+  // Feedback already stored for this search (e.g. after a reload) counts as sent.
+  const sentAll: Record<string, string> = { ...Object.fromEntries((r.feedback ?? []).map((f) => [f.product_id ?? 'global', f.verdict])), ...sent };
   const photoSrc = `/api/search/photo/${id}/image`;
   const imageAvailable = r.imageAvailable !== false;
 
@@ -79,8 +87,8 @@ export default function PhotoResultsPage() {
                   : '(non valido: ignorato)'}
             </Notice>
           )}
-          <button className="btn btn-danger" disabled={!!sent.global || feedback.isPending} onClick={() => feedback.mutate({ verdict: 'none_relevant' })}>
-            {sent.global ? 'Segnalazione registrata' : 'Nessun risultato pertinente'}
+          <button className="btn btn-danger" disabled={!!sentAll.global || feedback.isPending} onClick={() => feedback.mutate({ verdict: 'none_relevant' })}>
+            {sentAll.global ? 'Segnalazione registrata' : 'Nessun risultato pertinente'}
           </button>
           <p className="muted small">
             Le segnalazioni servono a valutare la qualità della ricerca: non modificano il catalogo né uniscono prodotti.
@@ -149,18 +157,18 @@ export default function PhotoResultsPage() {
                         <Link className="btn btn-sm btn-primary" to={`/prodotti/${c.product.id}`}>
                           Confronta offerte
                         </Link>
-                        {sent[c.product.id] ? (
+                        {sentAll[c.product.id] ? (
                           <span className="badge badge-neutral">Grazie, segnalazione registrata</span>
                         ) : (
                           <>
-                            <button className="btn btn-sm" onClick={() => feedback.mutate({ verdict: 'correct', productId: c.product.id })}>
+                            <button className="btn btn-sm" disabled={feedback.isPending} onClick={() => feedback.mutate({ verdict: 'correct', productId: c.product.id })}>
                               È questo
                             </button>
-                            <button className="btn btn-sm" onClick={() => feedback.mutate({ verdict: 'wrong', productId: c.product.id })}>
+                            <button className="btn btn-sm" disabled={feedback.isPending} onClick={() => feedback.mutate({ verdict: 'wrong', productId: c.product.id })}>
                               Non è questo
                             </button>
                             {c.group === 'similar' && (
-                              <button className="btn btn-sm" onClick={() => feedback.mutate({ verdict: 'useful_alternative', productId: c.product.id })}>
+                              <button className="btn btn-sm" disabled={feedback.isPending} onClick={() => feedback.mutate({ verdict: 'useful_alternative', productId: c.product.id })}>
                                 Alternativa utile
                               </button>
                             )}
@@ -176,8 +184,17 @@ export default function PhotoResultsPage() {
           <ErrorNotice error={feedback.error} />
         </section>
       </div>
-      <CropDialog open={cropOpen} imageSrc={cropOpen ? photoSrc : null} busy={recrop.isPending} onCancel={() => setCropOpen(false)} onConfirm={(c) => recrop.mutate(c)} />
-      {recrop.isError && <ErrorNotice error={recrop.error} />}
+      <CropDialog
+        open={cropOpen}
+        imageSrc={cropOpen ? photoSrc : null}
+        busy={recrop.isPending}
+        error={recrop.error}
+        onCancel={() => {
+          setCropOpen(false);
+          recrop.reset();
+        }}
+        onConfirm={(c) => recrop.mutate(c)}
+      />
     </div>
   );
 }

@@ -11,6 +11,17 @@ export function money(amount: string | number | null | undefined, currency: stri
   }
 }
 
+/**
+ * Number typed in a filter field: "12,5", "1.234,50" (Italian) or "12.5". Returns the value with a dot as
+ * decimal separator, '' for an empty field, null when it is not a non-negative number.
+ */
+export function parseDecimalInput(text: string): string | null {
+  const t = text.replace(/\s/g, '');
+  if (!t) return '';
+  const normalized = t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t;
+  return /^\d+(\.\d+)?$/.test(normalized) ? normalized : null;
+}
+
 export function dateTime(v: string | null | undefined): string {
   if (!v) return '—';
   return new Intl.DateTimeFormat('it-IT', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(v));

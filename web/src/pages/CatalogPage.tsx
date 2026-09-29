@@ -5,7 +5,7 @@ import { api, qs } from '../api';
 import { useAuth } from '../auth';
 import type { CatalogPage as CatalogPageData, Facets } from '../types';
 import { PhotoSearchBox } from '../components/PhotoSearchBox';
-import { ErrorNotice, Notice, ProductCardView, Spinner, useDocumentTitle } from '../components/ui';
+import { DecimalFilterInput, ErrorNotice, Notice, ProductCardView, Spinner, useDocumentTitle } from '../components/ui';
 
 const PAGE = 48;
 const FILTER_KEYS = ['suppliers', 'brand', 'category', 'priceMin', 'priceMax', 'availability', 'gtin', 'image', 'sort'] as const;
@@ -145,8 +145,8 @@ export function CatalogPage() {
               <fieldset className="field" style={{ border: 0, padding: 0, margin: '12px 0 0' }}>
                 <legend style={{ fontWeight: 500, fontSize: 14, marginBottom: 4 }}>Prezzo netto unitario (€)</legend>
                 <div className="row" style={{ flexWrap: 'nowrap' }}>
-                  <input aria-label="Prezzo minimo" className="input" inputMode="decimal" placeholder="da" defaultValue={filters.priceMin} onBlur={(e) => setParam('priceMin', e.target.value.replace(',', '.'))} />
-                  <input aria-label="Prezzo massimo" className="input" inputMode="decimal" placeholder="a" defaultValue={filters.priceMax} onBlur={(e) => setParam('priceMax', e.target.value.replace(',', '.'))} />
+                  <DecimalFilterInput label="Prezzo minimo" placeholder="da" value={filters.priceMin} onApply={(v) => setParam('priceMin', v)} />
+                  <DecimalFilterInput label="Prezzo massimo" placeholder="a" value={filters.priceMax} onApply={(v) => setParam('priceMax', v)} />
                 </div>
               </fieldset>
               <div className="field">

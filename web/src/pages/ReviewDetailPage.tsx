@@ -20,6 +20,9 @@ interface Side {
   offers: Array<{ id: string; supplier_sku: string; title: string | null; brand: string | null; attributes: Record<string, string>; barcode_raw: string | null; barcode_status: string; gtin: string | null; price: string | null; currency: string | null; units_per_pack: number | null; link_source: string; supplier_name: string }>;
 }
 
+const BARCODE_STATUS: Record<string, string> = { valid: 'valido', invalid: 'non valido', restricted: 'uso interno', missing: 'assente' };
+const RESOLUTION: Record<string, string> = { merged: 'prodotti uniti', kept_separate: 'mantenuti separati', dismissed: 'ignorata' };
+
 export default function ReviewDetailPage() {
   useDocumentTitle('Verifica corrispondenza');
   const { id } = useParams();
@@ -62,7 +65,7 @@ export default function ReviewDetailPage() {
             <ul className="small" style={{ paddingLeft: 18, margin: 0 }}>
               {side.offers.map((o) => (
                 <li key={o.id}>
-                  <strong>{o.supplier_name}</strong> · <span className="mono">{o.supplier_sku}</span> · “{o.title}” · marca {o.brand ?? 'n/d'} · EAN {o.barcode_raw ?? '—'} ({o.barcode_status})
+                  <strong>{o.supplier_name}</strong> · <span className="mono">{o.supplier_sku}</span> · “{o.title}” · marca {o.brand ?? 'n/d'} · EAN {o.barcode_raw ?? '—'} ({BARCODE_STATUS[o.barcode_status] ?? o.barcode_status})
                   {Object.keys(o.attributes ?? {}).length > 0 && ` · ${attrText(o.attributes)}`} · {money(o.price, o.currency)}
                   {o.units_per_pack && o.units_per_pack > 1 ? ` per ${o.units_per_pack} pz` : ''}
                 </li>
@@ -72,7 +75,7 @@ export default function ReviewDetailPage() {
         ))}
       </div>
       {review.status !== 'open' ? (
-        <Notice kind="info">Revisione chiusa ({review.resolution}). {review.audit_event_id && review.resolution === 'merged' && 'L’unione si può annullare dallo storico della scheda prodotto.'}</Notice>
+        <Notice kind="info">Revisione chiusa ({RESOLUTION[review.resolution] ?? review.resolution}). {review.audit_event_id && review.resolution === 'merged' && 'L’unione si può annullare dallo storico della scheda prodotto.'}</Notice>
       ) : isAdmin ? (
         <div className="card stack" style={{ marginTop: 16 }}>
           <div className="field">

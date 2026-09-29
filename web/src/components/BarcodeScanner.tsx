@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Modal, Notice } from './ui';
-import { isGtinCheckDigitValid } from './imagePrep';
+import { expandUpcE, isGtinCheckDigitValid } from './imagePrep';
 
 // Live barcode scanning: native BarcodeDetector when available (Chrome/Android), otherwise zxing-wasm
 // served from our own origin (no CDN). Manual entry is always available.
 type Detector = (source: HTMLVideoElement | HTMLCanvasElement) => Promise<string | null>;
+
+/** The code to search: a UPC-E symbol is expanded to its UPC-A. */
+const searchable = (text: string, format: string | undefined) => (/^upc_?e$/i.test(format ?? '') ? expandUpcE(text) ?? text : text);
 
 async function createDetector(): Promise<Detector> {
   const BD = (window as any).BarcodeDetector;
@@ -16,7 +19,7 @@ async function createDetector(): Promise<Detector> {
         const det = new BD({ formats });
         return async (src) => {
           const codes = await det.detect(src);
-          return codes[0]?.rawValue ?? null;
+          return codes[0] ? searchable(codes[0].rawValue, codes[0].format) : null;
         };
       }
     } catch {
@@ -36,7 +39,8 @@ async function createDetector(): Promise<Detector> {
     const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
     ctx.drawImage(video, 0, 0, w, h);
     const results = await readBarcodes(ctx.getImageData(0, 0, w, h), { formats: ['EAN13', 'EAN8', 'UPCA', 'UPCE'], tryHarder: true, maxNumberOfSymbols: 1 });
-    return results.find((r) => r.isValid)?.text ?? null;
+    const found = results.find((r) => r.isValid);
+    return found ? searchable(found.text, found.format) : null;
   };
 }
 
@@ -45,14 +49,22 @@ export function BarcodeScanner({ open, onClose, onCode }: { open: boolean; onClo
   const [error, setError] = useState<string | null>(null);
   const [manual, setManual] = useState('');
   const [manualError, setManualError] = useState<string | null>(null);
+  const [manualWarnedFor, setManualWarnedFor] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
+  // The latest onCode without restarting the camera: parents often pass a new function on every render.
+  const onCodeRef = useRef(onCode);
+  onCodeRef.current = onCode;
 
   useEffect(() => {
     if (!open) return;
     let stream: MediaStream | null = null;
     let stopped = false;
     let timer: number | undefined;
+    const release = () => stream?.getTracks().forEach((t) => t.stop());
     setError(null);
+    setManual('');
+    setManualError(null);
+    setManualWarnedFor(null);
     (async () => {
       if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
         setError('La fotocamera richiede una connessione sicura (HTTPS) e un browser compatibile. Inserisci il codice a mano.');
@@ -64,7 +76,11 @@ export function BarcodeScanner({ open, onClose, onCode }: { open: boolean; onClo
         setError('Accesso alla fotocamera non consentito o non disponibile. Inserisci il codice a mano.');
         return;
       }
-      if (stopped) return;
+      // Closed while the permission prompt was open: the cleanup ran before the stream existed.
+      if (stopped) {
+        release();
+        return;
+      }
       const video = videoRef.current!;
       video.srcObject = stream;
       await video.play().catch(() => {});
@@ -73,7 +89,12 @@ export function BarcodeScanner({ open, onClose, onCode }: { open: boolean; onClo
       try {
         detect = await createDetector();
       } catch {
+        release();
         setError('Lettore di codici non disponibile su questo dispositivo. Inserisci il codice a mano.');
+        return;
+      }
+      if (stopped) {
+        release();
         return;
       }
       const tick = async () => {
@@ -83,7 +104,7 @@ export function BarcodeScanner({ open, onClose, onCode }: { open: boolean; onClo
           if (code && /^\d{8,14}$/.test(code)) {
             stopped = true;
             navigator.vibrate?.(60);
-            onCode(code);
+            onCodeRef.current(code);
             return;
           }
         } catch {
@@ -96,10 +117,10 @@ export function BarcodeScanner({ open, onClose, onCode }: { open: boolean; onClo
     return () => {
       stopped = true;
       window.clearTimeout(timer);
-      stream?.getTracks().forEach((t) => t.stop());
+      release();
       setScanning(false);
     };
-  }, [open, onCode]);
+  }, [open]);
 
   const submitManual = (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,7 +129,13 @@ export function BarcodeScanner({ open, onClose, onCode }: { open: boolean; onClo
       setManualError('Inserisci solo cifre (8, 12, 13 o 14 per EAN/UPC/GTIN, oppure un codice interno)');
       return;
     }
-    setManualError(/^\d{8}$|^\d{12,14}$/.test(code) && !isGtinCheckDigitValid(code) ? 'Attenzione: la cifra di controllo non è valida; cerco comunque il codice così com’è.' : null);
+    // A wrong check digit is usually a typo: warn first, search as typed only if confirmed.
+    if (/^\d{8}$|^\d{12,14}$/.test(code) && !isGtinCheckDigitValid(code) && manualWarnedFor !== code) {
+      setManualWarnedFor(code);
+      setManualError('La cifra di controllo non è valida: controlla il codice, oppure premi di nuovo «Cerca codice» per cercarlo così com’è.');
+      return;
+    }
+    setManualError(null);
     onCode(code);
   };
 

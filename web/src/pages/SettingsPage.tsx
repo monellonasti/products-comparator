@@ -3,23 +3,45 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
 import { useAuth } from '../auth';
 import { ErrorNotice, Modal, Notice, Spinner, useDocumentTitle } from '../components/ui';
-import { dateTime } from '../format';
+import { dateTime, parseDecimalInput } from '../format';
+
+type TabKey = 'users' | 'categories' | 'system';
+const TABS: Array<{ key: TabKey; label: string; adminOnly: boolean }> = [
+  { key: 'users', label: 'Utenti', adminOnly: true },
+  { key: 'categories', label: 'Categorie', adminOnly: false },
+  { key: 'system', label: 'Stato del sistema', adminOnly: true },
+];
 
 export default function SettingsPage() {
   useDocumentTitle('Impostazioni');
   const { isAdmin, user } = useAuth();
-  const [tab, setTab] = useState<'users' | 'categories' | 'system'>(isAdmin ? 'users' : 'categories');
+  const [tab, setTab] = useState<TabKey>(isAdmin ? 'users' : 'categories');
+  const tabs = TABS.filter((t) => isAdmin || !t.adminOnly);
+  // WAI-ARIA tabs: one tab in the Tab order, arrows (and Home/End) move between tabs.
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    const i = tabs.findIndex((t) => t.key === tab);
+    const next = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : null;
+    if (next === null) return;
+    e.preventDefault();
+    const t = tabs[(next + tabs.length) % tabs.length];
+    setTab(t.key);
+    document.getElementById(`tab-${t.key}`)?.focus();
+  };
   return (
     <div className="page page-narrow">
       <div className="page-header"><div><h1>Impostazioni</h1><p>Connesso come {user?.email}.</p></div></div>
-      <div className="tabs" role="tablist">
-        {isAdmin && <button role="tab" aria-selected={tab === 'users'} onClick={() => setTab('users')}>Utenti</button>}
-        <button role="tab" aria-selected={tab === 'categories'} onClick={() => setTab('categories')}>Categorie</button>
-        {isAdmin && <button role="tab" aria-selected={tab === 'system'} onClick={() => setTab('system')}>Stato del sistema</button>}
+      <div className="tabs" role="tablist" aria-label="Sezioni delle impostazioni" onKeyDown={onKeyDown}>
+        {tabs.map((t) => (
+          <button key={t.key} id={`tab-${t.key}`} role="tab" aria-selected={tab === t.key} aria-controls={`panel-${t.key}`} tabIndex={tab === t.key ? 0 : -1} onClick={() => setTab(t.key)}>
+            {t.label}
+          </button>
+        ))}
       </div>
-      {tab === 'users' && isAdmin && <Users />}
-      {tab === 'categories' && <Categories />}
-      {tab === 'system' && isAdmin && <SystemStatus />}
+      <div id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`}>
+        {tab === 'users' && isAdmin && <Users />}
+        {tab === 'categories' && <Categories />}
+        {tab === 'system' && isAdmin && <SystemStatus />}
+      </div>
     </div>
   );
 }
@@ -86,11 +108,15 @@ function Categories() {
   return (
     <div className="card stack">
       <p className="muted small" style={{ margin: 0 }}>Categorie normalizzate usate nei filtri. Le categorie di ciascun fornitore si associano dalla pagina del fornitore.</p>
-      <ul>{q.data?.items.map((c) => <li key={c.id}>{c.name}</li>)}</ul>
+      {q.isLoading ? <Spinner /> : q.isError ? <ErrorNotice error={q.error} /> : q.data!.items.length === 0 ? (
+        <p className="muted">Nessuna categoria.</p>
+      ) : (
+        <ul>{q.data!.items.map((c) => <li key={c.id}>{c.name}</li>)}</ul>
+      )}
       {isAdmin && (
-        <form className="row" onSubmit={(e) => { e.preventDefault(); if (name.trim()) create.mutate(); }}>
+        <form className="row" onSubmit={(e) => { e.preventDefault(); if (name.trim() && !create.isPending) create.mutate(); }}>
           <input className="input" style={{ maxWidth: 320 }} aria-label="Nuova categoria" placeholder="Nuova categoria" value={name} onChange={(e) => setName(e.target.value)} />
-          <button className="btn" type="submit">Aggiungi</button>
+          <button className="btn" type="submit" disabled={!name.trim() || create.isPending}>{create.isPending ? 'Aggiunta…' : 'Aggiungi'}</button>
         </form>
       )}
       <ErrorNotice error={create.error} />
@@ -98,13 +124,24 @@ function Categories() {
   );
 }
 
+const ENGINE_STATE: Record<string, string> = { idle: 'non ancora caricato', loading: 'in caricamento', ready: 'pronto', failed: 'errore' };
+const IMAGE_STATUS: Record<string, string> = { pending: 'in attesa', fetched: 'scaricate', failed: 'non scaricabili', blocked: 'bloccate' };
+const IMPORT_STATUS: Record<string, string> = { succeeded: 'ultimo aggiornamento riuscito', failed: 'ultimo aggiornamento fallito', running: 'aggiornamento in corso' };
+const VERDICT: Record<string, string> = {
+  correct: 'È questo', wrong: 'Non è questo', useful_alternative: 'Alternativa utile', none_relevant: 'Nessun risultato pertinente',
+};
+
 function SystemStatus() {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ['admin-status'], queryFn: () => api.get<any>('/api/admin/status'), refetchInterval: 10_000 });
   const retry = useMutation({ mutationFn: (includeBlocked: boolean) => api.post<{ requeued: number }>('/api/admin/images/retry-failed', { includeBlocked }), onSuccess: () => void qc.invalidateQueries({ queryKey: ['admin-status'] }) });
   const [th, setTh] = useState<{ possible: string; similar: string; calibrated: boolean } | null>(null);
+  // "0,85" typed the Italian way is a valid threshold; anything else is refused before sending.
+  const thPossible = th ? parseDecimalInput(th.possible) : null;
+  const thSimilar = th ? parseDecimalInput(th.similar) : null;
+  const thValid = !!thPossible && !!thSimilar;
   const saveTh = useMutation({
-    mutationFn: () => api.patch('/api/admin/vision/thresholds', { possible: Number(th!.possible), similar: Number(th!.similar), calibrated: th!.calibrated }),
+    mutationFn: () => api.patch('/api/admin/vision/thresholds', { possible: Number(thPossible), similar: Number(thSimilar), calibrated: th!.calibrated }),
     onSuccess: () => { setTh(null); void qc.invalidateQueries({ queryKey: ['admin-status'] }); },
   });
   if (q.isLoading) return <Spinner />;
@@ -120,22 +157,30 @@ function SystemStatus() {
         <dl className="kv">
           <dt>Modello attivo</dt><dd>{v.activeModel ? <>{v.activeModel.label} <span className="mono small">{v.activeModel.key}</span></> : '—'}</dd>
           <dt>Licenza</dt><dd>{v.activeModel?.license ?? '—'}</dd>
-          <dt>Stato motore</dt><dd>{v.embedder?.state ?? '—'}{v.embedder?.loadMs ? ` (caricato in ${v.embedder.loadMs} ms)` : ''}</dd>
+          <dt>Stato motore</dt><dd>{v.embedder ? ENGINE_STATE[v.embedder.state] ?? v.embedder.state : '—'}{v.embedder?.loadMs ? ` (caricato in ${v.embedder.loadMs} ms)` : ''}</dd>
           <dt>Copertura indice</dt><dd>{v.coverage ? `${v.coverage.indexed.toLocaleString('it-IT')} / ${v.coverage.assets.toLocaleString('it-IT')} immagini · ${v.coverage.pending} in attesa · ${v.coverage.failed} fallite` : '—'}</dd>
           <dt>Soglie</dt>
           <dd>
-            possibile ≥ {v.activeModel?.thresholds.possible} · simile ≥ {v.activeModel?.thresholds.similar} · {v.activeModel?.thresholds.calibrated ? 'calibrate' : <span className="badge badge-warn">non calibrate su dati reali</span>}{' '}
-            <button className="btn btn-sm" onClick={() => setTh({ possible: String(v.activeModel.thresholds.possible), similar: String(v.activeModel.thresholds.similar), calibrated: !!v.activeModel.thresholds.calibrated })}>Modifica</button>
+            {v.activeModel ? (
+              <>
+                possibile ≥ {v.activeModel.thresholds.possible} · simile ≥ {v.activeModel.thresholds.similar} · {v.activeModel.thresholds.calibrated ? 'calibrate' : <span className="badge badge-warn">non calibrate su dati reali</span>}{' '}
+                <button className="btn btn-sm" onClick={() => setTh({ possible: String(v.activeModel.thresholds.possible).replace('.', ','), similar: String(v.activeModel.thresholds.similar).replace('.', ','), calibrated: !!v.activeModel.thresholds.calibrated })}>Modifica</button>
+              </>
+            ) : (
+              '—'
+            )}
           </dd>
           <dt>Ricerche (7 giorni)</dt><dd>{s.photoSearches.total} · non riuscite {s.photoSearches.failed} · p95 server {s.photoSearches.p95_ms ? `${Math.round(s.photoSearches.p95_ms)} ms` : '—'}</dd>
-          <dt>Segnalazioni</dt><dd>{s.feedback.map((f: any) => `${f.verdict}: ${f.n}`).join(' · ') || 'nessuna'}</dd>
+          <dt>Segnalazioni</dt><dd>{s.feedback.map((f: any) => `${VERDICT[f.verdict] ?? f.verdict}: ${f.n}`).join(' · ') || 'nessuna'}</dd>
         </dl>
         {th && (
           <div className="row" style={{ marginTop: 12 }}>
-            <label className="field">Possibile ≥ <input className="input" value={th.possible} onChange={(e) => setTh({ ...th, possible: e.target.value })} /></label>
-            <label className="field">Simile ≥ <input className="input" value={th.similar} onChange={(e) => setTh({ ...th, similar: e.target.value })} /></label>
+            <label className="field">Possibile ≥ <input className="input" inputMode="decimal" aria-invalid={thPossible === null || undefined} value={th.possible} onChange={(e) => setTh({ ...th, possible: e.target.value })} /></label>
+            <label className="field">Simile ≥ <input className="input" inputMode="decimal" aria-invalid={thSimilar === null || undefined} value={th.similar} onChange={(e) => setTh({ ...th, similar: e.target.value })} /></label>
             <label className="checkbox"><input type="checkbox" checked={th.calibrated} onChange={(e) => setTh({ ...th, calibrated: e.target.checked })} /> calibrate su un benchmark reale</label>
-            <button className="btn btn-primary" onClick={() => saveTh.mutate()}>Salva</button>
+            <button className="btn btn-primary" disabled={!thValid || saveTh.isPending} onClick={() => saveTh.mutate()}>{saveTh.isPending ? 'Salvataggio…' : 'Salva'}</button>
+            <button className="btn" onClick={() => setTh(null)}>Annulla</button>
+            {!thValid && <span className="error-text small">Soglie tra 0 e 1, ad esempio 0,85</span>}
           </div>
         )}
         <ErrorNotice error={saveTh.error} />
@@ -145,7 +190,7 @@ function SystemStatus() {
         {s.queue.length === 0 ? <p className="muted">Nessun job in coda.</p> : (
           <ul>{s.queue.map((j: any) => <li key={j.task}>{j.task}: {j.jobs} ({j.running} in esecuzione, {j.with_errors} con errori in attesa di retry)</li>)}</ul>
         )}
-        <p className="small muted">Immagini: {Object.entries(s.images).map(([k, n]) => `${k} ${n}`).join(' · ')}</p>
+        <p className="small muted">Immagini: {Object.entries(s.images).map(([k, n]) => `${IMAGE_STATUS[k] ?? k} ${n}`).join(' · ')}</p>
         <div className="row">
           <button className="btn" onClick={() => retry.mutate(false)} disabled={retry.isPending}>Riprova immagini ed embedding falliti</button>
           <button className="btn btn-ghost" onClick={() => retry.mutate(true)} disabled={retry.isPending}>Riprova anche quelli bloccati (host non autorizzati)</button>
@@ -160,7 +205,7 @@ function SystemStatus() {
       </div>
       <div className="card">
         <h2>Aggiornamento dei fornitori</h2>
-        <ul>{s.suppliers.map((x: any) => <li key={x.id}>{x.name}: {x.last_import_status ?? 'mai importato'} · dati al {dateTime(x.last_success_as_of)} {x.stale && <span className="badge badge-warn">non aggiornato</span>}</li>)}</ul>
+        <ul>{s.suppliers.map((x: any) => <li key={x.id}>{x.name}: {x.last_import_status ? IMPORT_STATUS[x.last_import_status] ?? x.last_import_status : 'mai importato'} · dati al {dateTime(x.last_success_as_of)} {x.stale && <span className="badge badge-warn">non aggiornato</span>}</li>)}</ul>
       </div>
     </div>
   );

@@ -2,7 +2,7 @@ import { Link, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { api, imageUrl, qs } from '../api';
 import type { ProductCard } from '../types';
-import { ErrorNotice, Spinner, useDocumentTitle } from '../components/ui';
+import { ErrorNotice, Pager, Spinner, useDocumentTitle } from '../components/ui';
 import { dateTime } from '../format';
 
 interface ReviewRow {
@@ -44,11 +44,18 @@ export default function ReviewsPage() {
   const [params, setParams] = useSearchParams();
   const status = params.get('status') ?? 'open';
   const kind = params.get('kind') ?? '';
-  const q = useQuery({ queryKey: ['reviews', status, kind], queryFn: () => api.get<{ items: ReviewRow[]; openCounts: Record<string, number> }>(`/api/reviews${qs({ status, kind })}`) });
+  const offset = Math.max(0, Number(params.get('offset')) || 0);
+  const q = useQuery({
+    queryKey: ['reviews', status, kind, offset],
+    queryFn: () =>
+      api.get<{ items: ReviewRow[]; openCounts: Record<string, number>; offset: number; limit: number; hasMore: boolean }>(`/api/reviews${qs({ status, kind, offset: offset || undefined })}`),
+  });
+  // Changing a filter goes back to the first page.
   const set = (k: string, v: string) => {
     const n = new URLSearchParams(params);
     if (v) n.set(k, v);
     else n.delete(k);
+    if (k !== 'offset') n.delete('offset');
     setParams(n);
   };
   return (
@@ -94,6 +101,7 @@ export default function ReviewsPage() {
           ))}
         </div>
       )}
+      {q.data && <Pager offset={q.data.offset} limit={q.data.limit} hasMore={q.data.hasMore} onChange={(o) => set('offset', o ? String(o) : '')} />}
     </div>
   );
 }

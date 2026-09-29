@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '../api';
@@ -51,13 +51,27 @@ export default function ImportWizardPage() {
   const [asOf, setAsOf] = useState('');
   const [saveProfile, setSaveProfile] = useState(true);
 
+  // Suggestions are applied once per uploaded file. "Rileggi" (same run) keeps the user's work: see reread.
+  const inspectedRun = inspect?.run.id;
   useEffect(() => {
     if (inspect) {
       setOpts(inspect.run.parseOptions ?? {});
       setMapping(inspect.suggestedMapping);
       setDefaults(inspect.suggestedDefaults);
     }
-  }, [inspect]);
+  }, [inspectedRun]);
+
+  // Each step change moves the focus to the step title (otherwise it falls on <body> when the button that
+  // had it disappears), so keyboard and screen-reader users continue from the new step.
+  const stepTitle = useRef<HTMLHeadingElement>(null);
+  const firstStep = useRef(true);
+  useEffect(() => {
+    if (firstStep.current) {
+      firstStep.current = false;
+      return;
+    }
+    stepTitle.current?.focus();
+  }, [step]);
 
   const upload = useMutation({
     mutationFn: () => {
@@ -73,7 +87,11 @@ export default function ImportWizardPage() {
   });
   const reread = useMutation({
     mutationFn: () => api.post<Inspect>(`/api/imports/${inspect!.run.id}/inspect`, opts),
-    onSuccess: (r) => setInspect((prev) => ({ ...prev!, ...r, suggestedDefaults: prev!.suggestedDefaults, duplicateOf: prev!.duplicateOf })),
+    onSuccess: (r) => {
+      setInspect((prev) => ({ ...prev!, ...r, suggestedDefaults: prev!.suggestedDefaults, duplicateOf: prev!.duplicateOf }));
+      // Columns chosen by the user stay mapped when they still exist in the re-read file.
+      setMapping((m) => keepMapping(m, r.headers, r.suggestedMapping));
+    },
   });
   const doPreview = useMutation({
     mutationFn: () => api.post<Preview>(`/api/imports/${inspect!.run.id}/preview`, { mapping: cleanMapping(mapping), defaults, parseOptions: opts }),
@@ -98,6 +116,9 @@ export default function ImportWizardPage() {
     <div className="page page-narrow">
       <nav className="small" style={{ marginBottom: 8 }}><Link to="/importazioni">Importazioni</Link> › Nuovo import</nav>
       <h1 style={{ marginTop: 0 }}>Importa un listino</h1>
+      <h2 ref={stepTitle} tabIndex={-1} className="sr-only">
+        Passo {step + 1} di {STEPS.length}: {STEPS[step]}
+      </h2>
       <ol className="row" aria-label="Passaggi" style={{ listStyle: 'none', padding: 0, gap: 6 }}>
         {STEPS.map((s, i) => (
           <li key={s} className={`badge ${i === step ? 'badge-info' : i < step ? 'badge-ok' : 'badge-neutral'}`} aria-current={i === step ? 'step' : undefined}>
@@ -188,7 +209,17 @@ export default function ImportWizardPage() {
           <ErrorNotice error={reread.error} />
           <SampleTable headers={headers} rows={inspect.sample.slice(0, 8)} />
           <div className="row">
-            <button className="btn" onClick={() => setStep(0)}>Indietro</button>
+            <button
+              className="btn"
+              onClick={() => {
+                // The file field is empty again on step 1: forget the old file too, so "Carica e leggi"
+                // never uploads a file the user can no longer see.
+                setFile(null);
+                setStep(0);
+              }}
+            >
+              Indietro
+            </button>
             <span className="spacer" />
             <button className="btn btn-primary" onClick={() => setStep(2)}>Avanti: colonne</button>
           </div>
@@ -347,6 +378,17 @@ export default function ImportWizardPage() {
       {(upload.isPending || reread.isPending) && <Spinner />}
     </div>
   );
+}
+
+function keepMapping(current: ColumnMapping, headers: string[], suggested: ColumnMapping): ColumnMapping {
+  const exists = (c: string) => headers.includes(c);
+  const fields: Record<string, string | string[]> = { ...suggested.fields };
+  for (const [k, v] of Object.entries(current.fields)) {
+    const cols = Array.isArray(v) ? v : [v];
+    if (cols.length && cols.every((c) => !c || exists(c))) fields[k] = v;
+  }
+  const tiers = current.tiers?.filter((t) => exists(t.column));
+  return { fields: fields as ColumnMapping['fields'], tiers: tiers?.length ? tiers : suggested.tiers };
 }
 
 function cleanMapping(m: ColumnMapping): ColumnMapping {

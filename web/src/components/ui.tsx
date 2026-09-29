@@ -1,7 +1,7 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { imageUrl } from '../api';
-import { money, STOCK_LABELS, date } from '../format';
+import { money, parseDecimalInput, STOCK_LABELS, date } from '../format';
 import type { PriceSummary, ProductCard, StockStatus } from '../types';
 
 export function Spinner({ label = 'Caricamento…' }: { label?: string }) {
@@ -44,12 +44,27 @@ export function ErrorNotice({ error }: { error: unknown }) {
 
 export function Modal({ open, onClose, title, children, footer, wide }: { open: boolean; onClose: () => void; title: string; children: ReactNode; footer?: ReactNode; wide?: boolean }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const opener = useRef<HTMLElement | null>(null);
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
-    if (open && !d.open) d.showModal();
+    if (open && !d.open) {
+      opener.current = document.activeElement as HTMLElement | null;
+      d.showModal();
+    }
     if (!open && d.open) d.close();
   }, [open]);
+  // Many dialogs are removed by their parent ({x && <Modal open …/>}) without close(): give the focus back
+  // to the button that opened them instead of losing it on <body>. No close() here: its "close" event would
+  // reach onClose (under StrictMode's simulated unmount the dialog is still in use); passive cleanups run
+  // after the dialog has left the DOM, so the opener is no longer inert.
+  useEffect(
+    () => () => {
+      const el = opener.current;
+      if (el && el.isConnected) el.focus();
+    },
+    [],
+  );
   return (
     <dialog ref={ref} className="modal" onClose={onClose} onCancel={onClose} aria-labelledby="modal-title" style={wide ? { width: 'min(1100px, calc(100vw - 24px))' } : undefined}>
       {open && (
@@ -136,6 +151,73 @@ export function ProductCardView({ card, extra, to }: { card: ProductCard; extra?
         {extra}
       </div>
     </Link>
+  );
+}
+
+/**
+ * Numeric filter field bound to a URL value: accepts the Italian comma, applies on blur or Enter, and
+ * rejects invalid input with a message instead of sending it to the server. Follows external changes
+ * of the value (reset filters, back/forward).
+ */
+export function DecimalFilterInput({ value, onApply, id, label, placeholder }: { value: string; onApply: (v: string) => void; id?: string; label?: string; placeholder?: string }) {
+  const shown = value.replace('.', ',');
+  const [text, setText] = useState(shown);
+  const [invalid, setInvalid] = useState(false);
+  useEffect(() => {
+    setText(shown);
+    setInvalid(false);
+  }, [shown]);
+  const apply = () => {
+    const v = parseDecimalInput(text);
+    if (v === null) {
+      setInvalid(true);
+      return;
+    }
+    if (v !== value) onApply(v);
+  };
+  return (
+    <span className="decimal-input">
+      <input
+        id={id}
+        aria-label={label}
+        className="input"
+        inputMode="decimal"
+        placeholder={placeholder}
+        value={text}
+        aria-invalid={invalid || undefined}
+        onChange={(e) => {
+          setText(e.target.value);
+          setInvalid(false);
+        }}
+        onBlur={apply}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            apply();
+          }
+        }}
+      />
+      {invalid && <span className="error-text small" role="alert">Numero non valido</span>}
+    </span>
+  );
+}
+
+/** Previous/next pages for lists paginated by the server with `offset` and `hasMore`. */
+export function Pager({ offset, limit, hasMore, onChange }: { offset: number; limit: number; hasMore: boolean; onChange: (offset: number) => void }) {
+  if (offset === 0 && !hasMore) return null;
+  return (
+    <nav className="row" aria-label="Pagine" style={{ marginTop: 12 }}>
+      <span className="muted small">
+        Elementi {offset + 1}–{offset + limit}
+      </span>
+      <span className="spacer" />
+      <button className="btn btn-sm" disabled={offset === 0} onClick={() => onChange(Math.max(0, offset - limit))}>
+        Precedenti
+      </button>
+      <button className="btn btn-sm" disabled={!hasMore} onClick={() => onChange(offset + limit)}>
+        Successivi
+      </button>
+    </nav>
   );
 }
 

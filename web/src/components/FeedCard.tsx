@@ -69,8 +69,16 @@ export function FeedCard({ supplierId, feed, isAdmin }: { supplierId: string; fe
       refresh();
     },
   });
-  const test = useMutation({ mutationFn: () => api.post<any>(`/api/suppliers/${supplierId}/feed/test`), onSuccess: setTestResult });
-  const run = useMutation({ mutationFn: () => api.post(`/api/suppliers/${supplierId}/feed/run`), onSuccess: () => setTimeout(refresh, 1500) });
+  // A new test clears the previous outcome: a failure must not appear next to an old "Connessione riuscita".
+  const test = useMutation({ mutationFn: () => api.post<any>(`/api/suppliers/${supplierId}/feed/test`), onMutate: () => setTestResult(null), onSuccess: setTestResult });
+  const run = useMutation({
+    mutationFn: () => api.post(`/api/suppliers/${supplierId}/feed/run`),
+    onSuccess: () =>
+      setTimeout(() => {
+        refresh();
+        void qc.invalidateQueries({ queryKey: ['imports'] }); // "Ultimi import" on the same page
+      }, 1500),
+  });
   const sample = useMutation({
     mutationFn: () => api.post<any>(`/api/suppliers/${supplierId}/feed/sample`),
     onSuccess: (inspect) => navigate('/importazioni/nuova', { state: { inspect } }),

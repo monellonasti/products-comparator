@@ -2,7 +2,7 @@ import { Link, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { api, qs } from '../api';
 import type { OfferChange, Supplier } from '../types';
-import { ErrorNotice, Spinner, useDocumentTitle } from '../components/ui';
+import { DecimalFilterInput, ErrorNotice, Spinner, useDocumentTitle } from '../components/ui';
 import { CHANGE_TYPES, ChangesTable } from '../components/changes';
 import { ImportsTabs } from './ImportsPage';
 
@@ -97,7 +97,7 @@ export default function ChangesPage() {
           </div>
           <div className="field">
             <label htmlFor="c-pct">Prezzi: variazione minima %</label>
-            <input id="c-pct" className="input" inputMode="decimal" placeholder="qualsiasi" defaultValue={f.minPct} onBlur={(e) => set('minPct', e.target.value.replace(',', '.'))} />
+            <DecimalFilterInput id="c-pct" placeholder="qualsiasi" value={f.minPct} onApply={(v) => set('minPct', v)} />
           </div>
         </div>
         <fieldset style={{ border: 0, padding: 0, margin: '12px 0 0' }}>
